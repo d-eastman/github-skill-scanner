@@ -36,7 +36,7 @@ Key prior decisions (treated as fixed inputs, not up for re-litigitation):
 - A scanner (`src/scan`) that reads that config, fetches `SKILL.md` files from each repo via the GitHub API, extracts metadata, and writes structured JSON output to `data/`
 - A scheduled GitHub Actions workflow that runs the scanner on a recurring schedule and commits the updated `data/` output to the repository
 - A React/Vite frontend (`src/fe`) published to GitHub Pages that reads the JSON data and displays a browsable, searchable skill catalog
-- A "copy install command" interaction that puts an `npx skills add <repo-url> --skill <skill-name>` command on the user's clipboard
+- A "copy install command" interaction that puts an `npx skills add <repo-url> --skill <skill-name> -a github-copilot -y` command on the user's clipboard
 
 ### Out of scope (v1)
 - Dynamic repo discovery — no searching GitHub for repos; the list is static and hand-maintained
@@ -107,12 +107,12 @@ Key prior decisions (treated as fixed inputs, not up for re-litigitation):
    - Clearing the search input restores the full list.
    - A search that matches zero skills shows a "no results" message.
 
-8. **Frontend: copy install command** — For each skill, the frontend must provide a one-click interaction that copies the `npx skills add <repoUrl> --skill <skillName>` command to the user's clipboard.  
+8. **Frontend: copy install command** — For each skill, the frontend must provide a one-click interaction that copies the `npx skills add <repoUrl> --skill <skillName> -a github-copilot -y` command to the user's clipboard.  
    *Acceptance criteria:*
    - Each skill card has a copy button or click-to-copy element showing the install command.
    - Clicking it writes the full command string to the clipboard using the browser Clipboard API.
    - Visual feedback (e.g., button text changes to "Copied!") confirms the copy to the user.
-   - The copied string, when pasted, is exactly `npx skills add <repoUrl> --skill <skillName>` (e.g. `npx skills add https://github.com/anthropics/skills --skill frontend-design`) with no trailing whitespace or newline artifacts.
+   - The copied string, when pasted, is exactly `npx skills add <repoUrl> --skill <skillName> -a github-copilot -y` (e.g. `npx skills add https://github.com/anthropics/skills --skill frontend-design -a github-copilot -y`) with no trailing whitespace or newline artifacts. *(`-a github-copilot -y` appended 2026-06-05 to target the GitHub Copilot agent and skip the prompt.)*
 
 9. **Frontend deployed to GitHub Pages** — The built frontend must be served from GitHub Pages on the project repository's GitHub Pages URL, with the scanner's `data/` output accessible to the frontend at runtime.  
    *Acceptance criteria:*
@@ -177,7 +177,7 @@ Key prior decisions (treated as fixed inputs, not up for re-litigitation):
 - [ ] A search that produces no results shows a "no results" message, not a blank page
 
 ### Story 3: Copy the install command
-**As a** developer, **I want** to click a button and have the `npx skills add <repoUrl> --skill <skillName>` command copied to my clipboard **so that** I can paste it directly into my terminal without constructing the command manually.
+**As a** developer, **I want** to click a button and have the `npx skills add <repoUrl> --skill <skillName> -a github-copilot -y` command copied to my clipboard **so that** I can paste it directly into my terminal without constructing the command manually.
 
 **Acceptance criteria:**
 - [ ] Every skill card has a copy-to-clipboard interaction for its install command

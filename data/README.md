@@ -50,12 +50,14 @@ See `docs/dev-team/adr-002-data-schema-output-contract.md` for the full architec
 ## Install command format
 
 ```
-npx skills add {repoUrl} --skill {skillName}
+npx skills add {repoUrl} --skill {skillName} -a github-copilot -y
 ```
+
+`-a github-copilot` targets the GitHub Copilot agent; `-y` skips the confirmation prompt.
 
 Example:
 ```
-npx skills add https://github.com/anthropics/skills --skill frontend-design
+npx skills add https://github.com/anthropics/skills --skill frontend-design -a github-copilot -y
 ```
 
 ## Discovery layouts (SKILL.md paths that qualify)

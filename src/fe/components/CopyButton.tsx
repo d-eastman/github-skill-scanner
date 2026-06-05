@@ -6,7 +6,8 @@
  *   - onCopy: callback fired on success or failure with a message for aria-live announcement
  *
  * Behavior:
- *   - Build command: npx skills add ${repoUrl} --skill ${skillName} (no trailing whitespace)
+ *   - Build command via buildInstallCommand() — shared with SkillCard so the
+ *     displayed and copied strings always match (no trailing whitespace)
  *   - On click: call navigator.clipboard.writeText(command)
  *   - On success: show "Copied!" for 2s, then revert to "Copy"
  *   - On failure: show "Failed — try again" for 2s, then revert
@@ -17,6 +18,7 @@
 
 import { useState } from "react";
 import type { SkillEntry } from "../../types/skills.js";
+import { buildInstallCommand } from "../installCommand.js";
 
 interface CopyButtonProps {
   skill: SkillEntry;
@@ -28,12 +30,8 @@ export function CopyButton({ skill, onCopy }: CopyButtonProps) {
     "Copy"
   );
 
-  const buildCommand = (): string => {
-    return `npx skills add ${skill.repoUrl} --skill ${skill.skillName}`;
-  };
-
   const handleClick = async () => {
-    const command = buildCommand();
+    const command = buildInstallCommand(skill);
     const skillDisplayName = skill.name ?? skill.skillName;
 
     try {

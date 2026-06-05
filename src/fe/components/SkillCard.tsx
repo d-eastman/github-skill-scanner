@@ -10,11 +10,12 @@
  *   - Description: <p>{description}</p> only if description is not null
  *   - Repo link: <a href={repoUrl} target="_blank" rel="noopener noreferrer">
  *       {repo}<span className="visually-hidden"> (opens in new tab)</span></a>
- *   - Install command: <code>npx skills add {repoUrl} --skill {skillName}</code>
+ *   - Install command: <code>{buildInstallCommand(skill)}</code>
  *   - CopyButton
  */
 
 import type { SkillEntry } from "../../types/skills.js";
+import { buildInstallCommand } from "../installCommand.js";
 import { CopyButton } from "./CopyButton.js";
 
 interface SkillCardProps {
@@ -36,7 +37,7 @@ export function SkillCard({ skill, onCopy }: SkillCardProps) {
           <span className="visually-hidden"> (opens in new tab)</span>
         </a>
       </p>
-      <code>{`npx skills add ${skill.repoUrl} --skill ${skill.skillName}`}</code>
+      <code>{buildInstallCommand(skill)}</code>
       <CopyButton skill={skill} onCopy={onCopy} />
     </article>
   );

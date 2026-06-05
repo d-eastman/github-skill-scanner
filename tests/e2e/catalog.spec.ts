@@ -36,7 +36,9 @@ test("loads the app and renders skill cards without hitting the error state", as
 
   // Install command is rendered verbatim for the first skill.
   await expect(
-    page.getByText("npx skills add https://github.com/anthropics/skills --skill frontend-design")
+    page.getByText(
+      "npx skills add https://github.com/anthropics/skills --skill frontend-design -a github-copilot -y"
+    )
   ).toBeVisible();
 });
 
@@ -80,7 +82,7 @@ test("copy button writes the command and shows then reverts feedback", async ({
   // Real-browser confirmation of the copied string (QA had this as unverified).
   const clipboard = await page.evaluate(() => navigator.clipboard.readText());
   expect(clipboard).toBe(
-    "npx skills add https://github.com/anthropics/skills --skill frontend-design"
+    "npx skills add https://github.com/anthropics/skills --skill frontend-design -a github-copilot -y"
   );
 
   // Feedback shows, then reverts after ~2s (QA had the timer as unverified).

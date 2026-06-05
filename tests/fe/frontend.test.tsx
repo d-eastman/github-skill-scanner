@@ -17,11 +17,10 @@ import { render, screen } from "@testing-library/react";
 import type { SkillEntry } from "../../src/types/skills.js";
 import { SkillCard } from "../../src/fe/components/SkillCard.js";
 import { SkillList } from "../../src/fe/components/SkillList.js";
+// Test the real shared command builder (used by both SkillCard and CopyButton).
+import { buildInstallCommand } from "../../src/fe/installCommand.js";
 
-// Helper: build the command string exactly as CopyButton does
-const buildCommand = (skill: SkillEntry): string => {
-  return `npx skills add ${skill.repoUrl} --skill ${skill.skillName}`;
-};
+const buildCommand = buildInstallCommand;
 
 // Helper: filter skills exactly as App does
 const filterSkills = (skills: SkillEntry[], query: string): SkillEntry[] => {
@@ -48,7 +47,8 @@ describe("frontend unit tests", () => {
       };
 
       const command = buildCommand(skill);
-      const expected = "npx skills add https://github.com/anthropics/skills --skill pdf-generator";
+      const expected =
+        "npx skills add https://github.com/anthropics/skills --skill pdf-generator -a github-copilot -y";
 
       expect(command).toBe(expected);
       expect(command).not.toMatch(/\s+$/); // No trailing whitespace
