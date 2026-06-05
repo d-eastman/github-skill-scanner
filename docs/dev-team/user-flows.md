@@ -446,6 +446,7 @@ A pass of this design against Nielsen's 10 heuristics, noting anything risky or 
 | App | All states (owns status + query) |
 | Header (h1 + subtitle) | All states |
 | Timestamp | Ready (empty + populated); omit in loading and error |
+| ScannedReposIndicator | Ready only; hidden in loading and error; see Section 8 |
 | SearchBar | All states; disabled in loading, error, empty |
 | SkillList | Ready states only |
 | SkillCard + CopyButton | Populated state only (filtered list >= 1) |
@@ -458,9 +459,208 @@ The loading message, error message, empty message, and no-results message all re
 
 ---
 
+## 8. Scanned Repos Indicator — Interaction Spec
+
+**Feature:** SR-1 (requirements-scanned-repos.md)  
+**Data:** `metadata.repos: ScannedRepo[]` (ADR-002 addendum, 2026-06-05)  
+**Pattern resolved:** summary line + `<details>`/`<summary>` disclosure  
+**Renders:** `status === "ready"` only, and only when `metadata.repos` is a non-empty array
+
+---
+
+### 8a. Placement
+
+The indicator sits immediately below the "Last scanned" line, inside the existing `<header>` element. It is the last item in the header before the search section begins. Both lines are small, secondary text — the timestamp and the repos indicator form a natural two-line footer to the header block.
+
+```
++----------------------------------------------------------+
+|  GitHub Skill Scanner                           [h1]     |
+|  Agent skills across the ecosystem              [p]      |
+|                              Last scanned: Jun 4, 2026   |
+|                              Scanning 12 repositories    |  <-- collapsed default
++----------------------------------------------------------+
+|  [ Search skills...                               [x] ]  |
+|  ...
+```
+
+Visual weight constraint: the indicator is the same small/muted text size as the "Last scanned" line. It adds one line to the header in its default (collapsed) state, satisfying the must-have requirement. The `<details>` element expands inline below that line when opened; it does not shift the search input or skill list — the header grows downward.
+
+---
+
+### 8b. Collapsed (Default) State
+
+The indicator renders as a `<details>` element whose `<summary>` is the only visible content when closed. No open attribute on the element — closed is the default.
+
+```
++----------------------------------------------------------+
+|  GitHub Skill Scanner                                    |
+|  Agent skills across the ecosystem                       |
+|                              Last scanned: Jun 4, 2026   |
+|                              Scanning 12 repositories v  |
++----------------------------------------------------------+
+```
+
+The disclosure triangle (v or >) is the browser's native `<details>` marker. Do not replace it with a custom icon — the native marker is keyboard-accessible and screen-reader-understood without any extra implementation.
+
+**Summary text — singular/plural:**
+- 1 repo: "Scanning 1 repository"
+- N repos: "Scanning N repositories"
+
+The word "Scanning" is intentional: it describes the configured scan scope (what is being scanned), not a historical snapshot. This matches the user story intent: "which repositories are included in the skill scanner."
+
+**Alignment:** right-aligned to match the "Last scanned" line above it. Both lines share the same right-edge alignment, keeping the left side of the header clean for the title and subtitle.
+
+---
+
+### 8c. Expanded State
+
+When the user activates the `<summary>` (click, Enter, or Space), the browser opens the `<details>` element and the repo list appears inline below the summary line.
+
+```
++----------------------------------------------------------+
+|  GitHub Skill Scanner                                    |
+|  Agent skills across the ecosystem                       |
+|                              Last scanned: Jun 4, 2026   |
+|                         Scanning 12 repositories ^       |
+|                                                          |
+|                         anthropics/model-cards           |
+|                         anthropics/skills                |
+|                         someorg/empty-repo               |
+|                         someorg/broken-repo  scan failed |
+|                         ...                              |
++----------------------------------------------------------+
+```
+
+**Repo list structure:**
+
+Each repo in the list is a single line. The link text is the `owner/repo` string from `ScannedRepo.repo`. The href is `ScannedRepo.repoUrl`. All links open in a new tab (`target="_blank" rel="noopener noreferrer"`). Apply the same visually-hidden "(opens in new tab)" treatment already established in Section 2c for skill card repo links — use whichever approach the Lead chose there, applied consistently here.
+
+The list is a `<ul>` of `<li>` elements. This gives screen readers the item count and list navigation for free, consistent with the skill card list convention.
+
+Sort order: alphabetical by `repo` (ascending), matching the scanner's sort order from ADR-002 addendum. The frontend renders `metadata.repos` in the order received — no client-side re-sort needed.
+
+**Wrapper element:** the content area of the `<details>` (outside the `<summary>`) holds the `<ul>`. No extra heading inside the expanded panel — the `<summary>` text already names what the list contains. Adding a heading would add redundant verbosity for screen reader users navigating by heading.
+
+---
+
+### 8d. Failed Repo Treatment
+
+Repos with `status: "failed"` are shown in the list with a small inline tag reading "scan failed" immediately after the link. The tag is visually muted — not red, not bold, not an icon that draws the eye from across the page. It is informational for a maintainer who is looking, not an alarm for a casual user who is not.
+
+```
+|  someorg/broken-repo  scan failed  |
+```
+
+**Implementation:** a `<span>` with a class like `repo-scan-failed`. Styling is visual design's call, but the interaction design's intent is: secondary text color (not the body text color, not a warning color), no background, no border, small size matching the repo link text. Something like muted gray in a light theme. The tag must have sufficient contrast for WCAG AA regardless — that is visual design's constraint to meet, not this spec's job to specify.
+
+The tag text "scan failed" is lowercase, no punctuation. It reads as a label, not a sentence. A screen reader will read it as part of the list item: "someorg/broken-repo (link), scan failed" — which is the correct information.
+
+Do not hide the failed repo, mark it with a strikethrough, or give it reduced opacity that makes it hard to read. The repo is in the scan; the maintainer may want to click through to investigate. Hiding or degrading it serves no one.
+
+---
+
+### 8e. Zero-Skill Repos
+
+Repos with `status: "succeeded"` and `skillCount: 0` are shown identically to repos with skills. No annotation, no "(0 skills)" label, no distinction of any kind. The repo was scanned successfully; it simply has no SKILL.md files yet. This is not a warning state.
+
+The user story's purpose is to show scan scope. A zero-skill repo is fully in scope. Calling it out would mislead users into thinking something is wrong when nothing is.
+
+---
+
+### 8f. Skill Count Display — Recommendation for v1
+
+The nice-to-have (N1) asks whether to show per-repo skill counts in the expanded list (e.g. "anthropics/skills — 5 skills"). My recommendation is: **do not show skill counts in v1.**
+
+Reasons:
+
+1. The primary user need is scan scope — "is this repo being scanned?" The count answers a secondary question. It adds visual noise to every row for a benefit that most users at launch will not need.
+
+2. Counts create an asymmetry that draws attention to zero-skill repos in a way that feels like a warning even without a warning tag. "anthropics/skills — 5 skills" next to "someorg/empty-repo — 0 skills" reads as a red flag even when the zero is expected and correct.
+
+3. The data is available (`ScannedRepo.skillCount`), so this can be added in a later iteration with one line of JSX per row if it turns out users want it. The cost of deferral is minimal; the cost of inclusion is minor but real clutter.
+
+If the PM or Lead disagrees, the implementation is trivial: append " — {skillCount} {skillCount === 1 ? 'skill' : 'skills'}" to each row. Gate it on a prop or feature flag so it can be toggled without a new design pass.
+
+---
+
+### 8g. States — When the Indicator Renders or Hides
+
+| App status | `metadata.repos` | Indicator |
+|------------|-----------------|-----------|
+| `loading` | not yet available | Hidden entirely. Do not render the element. |
+| `error` | not available | Hidden entirely. Do not render the element. |
+| `ready` | absent (`undefined`) | Hidden. Degrade gracefully — show nothing. Do not fall back to deriving from `skills[]` in the UI; if the BA wants Interpretation A fallback behavior it needs a deliberate product decision. |
+| `ready` | present, `length === 0` | Hidden. An empty `repos` array means the config had no entries; this is a scanner-configuration problem, not a display case. |
+| `ready` | present, `length >= 1` | Show the collapsed indicator. |
+
+The indicator is a pure `status === "ready" && Array.isArray(metadata?.repos) && metadata.repos.length > 0` render guard. One conditional, no intermediate states.
+
+**Empty-catalog case (skills = [], repos present):** The indicator still shows in this state. The "Last scanned" timestamp already renders in the empty state (Section 3, State 3 notes); the repos indicator follows the same rule. Seeing "Scanning 3 repositories" alongside "No skills found yet" is useful — it tells the user the repos are configured but none have SKILL.md files yet. This is more informative than hiding the indicator when skills are empty.
+
+---
+
+### 8h. Microcopy Reference (additions for SR-1)
+
+| Context | Text |
+|---------|------|
+| Summary line (1 repo) | "Scanning 1 repository" |
+| Summary line (N repos) | "Scanning N repositories" |
+| Failed repo tag | "scan failed" |
+| `<details>` aria-label | "Scanned repositories" |
+
+The `<details>` element itself should carry `aria-label="Scanned repositories"` so screen readers that announce the disclosure widget name something specific rather than repeating the summary text. This is a belt-and-suspenders note — `<details>`/`<summary>` is already well-supported — but it costs nothing and makes the landmark unambiguous when navigating by landmark.
+
+---
+
+### 8i. Accessibility Notes for the Lead
+
+**Why `<details>`/`<summary>` and not an `aria-expanded` button**
+
+`<details>`/`<summary>` is the right choice here because:
+- Keyboard support (Enter/Space to toggle, native in all modern browsers) comes for free.
+- Screen readers announce it as a disclosure widget with its open/closed state, which is exactly what it is.
+- No JavaScript needed — zero interaction logic to write or maintain.
+- The only case where an `aria-expanded` button would be preferable is when the content needs to be positioned outside the DOM flow (e.g. a dropdown overlay). This expanded list is inline — it sits in the normal document flow and pushes content down. `<details>` is the right semantic.
+
+The known gap: `<details>`/`<summary>` does not support smooth CSS animation of the open/close transition in the same way a JS-controlled element does. For this feature, that is acceptable — the content appears and disappears; no animation is required or specified. If the visual designer later wants an animated transition, the Lead can implement it with a small JS intercept, but that is not a v1 concern.
+
+**Interaction with the existing aria-live region**
+
+The existing `aria-live="polite"` region in `App.tsx` is used exclusively for copy feedback from `CopyButton`. The repos indicator does not write to this region and does not need its own live region. The `<details>` open/closed state is announced natively by screen readers; no additional announcement is needed.
+
+There is no conflict.
+
+**Interaction with autofocus on the search input**
+
+The `<details>` element and its `<summary>` appear in the `<header>`, which is above the `<section>` containing the search input. The tab order is:
+1. `<summary>` element (the "Scanning N repositories" disclosure toggle)
+2. Search input (autofocused on page load, but in tab order after the header)
+3. Repo links inside `<details>` when expanded — see note below
+
+The autofocus on the search input on page load is correct and unchanged. On initial load, focus jumps to the search input, bypassing the `<summary>`. A keyboard user tabbing backward (Shift+Tab) from the search input reaches the `<summary>`, which is correct and expected.
+
+**Tab order inside the expanded list**
+
+When the `<details>` is open, the repo links inside it are in the natural tab order between the `<summary>` and the search input. That means: `<summary>` -> repo link 1 -> repo link 2 -> ... -> repo link N -> search input. For a list of up to ~20 repos (confirmed launch size), this is acceptable — the user tabs through the list to get to the search input, or uses Shift+Tab from the search input to reach the list. If the list grows significantly, this could become tedious; at that point, consider closing the `<details>` by default (already the design) and educating users that the expand is optional.
+
+Do not insert the search input before the `<details>` in the DOM to "fix" the tab order — that would break the visual and heading hierarchy. The current document order is correct.
+
+**Focus when the `<details>` is toggled**
+
+Native `<details>` toggle does not move focus — focus stays on the `<summary>` after activation. This is correct behavior: the user activated the control, the control responded, focus stays on the control. Do not add programmatic `focus()` calls on toggle.
+
+**Screen reader announcement of repo links**
+
+Each repo link in the list will read as "{owner/repo} (link), opens in new tab" — the same pattern established for skill card repo links in Section 2c. Apply whichever approach the Lead already implemented (visually-hidden span or `aria-label`) consistently.
+
+Failed repo rows read as: "{owner/repo} (link), opens in new tab, scan failed." The "scan failed" `<span>` is plain text in the DOM and will be read in sequence. No additional ARIA is needed on the tag.
+
+---
+
 ## Links
 
 - `requirements.md` — must-haves #6, #7, #8; nice-to-have #3; NFR (render < 2s, basic keyboard navigability)
+- `requirements-scanned-repos.md` — SR-1; must-haves #1–3; OQ-SR-1 (resolved B), OQ-SR-2 (resolved: summary + expand)
 - `adr-005-frontend-architecture.md` — component shape, state machine (`loading | error | ready`), TypeScript
-- `adr-002-data-schema-output-contract.md` — data fields available to display; null-tolerance rules
-- Handoff to Lead Developer for feasibility review before implementation
+- `adr-002-data-schema-output-contract.md` — data fields available to display; null-tolerance rules; addendum 2026-06-05 (`metadata.repos` shape)
+- Handoff to Lead Developer for interaction-feasibility check (Section 8 additions) before implementation

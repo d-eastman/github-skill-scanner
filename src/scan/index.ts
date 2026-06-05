@@ -24,7 +24,7 @@ import { matchSkillPath } from "./layout.js";
 import { parseFrontmatter } from "./parser.js";
 import { writeCatalog } from "./writer.js";
 import { MAX_CONTENT_BYTES, exceedsSizeLimit } from "./limits.js";
-import type { SkillEntry } from "../types/skills.js";
+import type { SkillEntry, ScannedRepo } from "../types/skills.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -150,6 +150,7 @@ async function fetchRawContent(
 async function scanRepo(config: RepoConfig): Promise<{
   skills: SkillEntry[];
   succeeded: boolean;
+  repoUrl: string;
 }> {
   const { owner, repo } = config;
   const repoSlug = `${owner}/${repo}`;
@@ -161,14 +162,14 @@ async function scanRepo(config: RepoConfig): Promise<{
   const branch = await getDefaultBranch(owner, repo);
   if (!branch) {
     console.error(`[scanner] Skipping ${repoSlug} — could not determine default branch`);
-    return { skills: [], succeeded: false };
+    return { skills: [], succeeded: false, repoUrl };
   }
 
   // Step 2: get recursive tree
   const tree = await getRepoTree(owner, repo, branch);
   if (!tree) {
     console.error(`[scanner] Skipping ${repoSlug} — could not fetch git tree`);
-    return { skills: [], succeeded: false };
+    return { skills: [], succeeded: false, repoUrl };
   }
 
   if (tree.truncated) {
@@ -185,7 +186,7 @@ async function scanRepo(config: RepoConfig): Promise<{
 
   if (skillBlobs.length === 0) {
     console.warn(`[scanner] No SKILL.md files found in ${repoSlug}`);
-    return { skills: [], succeeded: true };
+    return { skills: [], succeeded: true, repoUrl };
   }
 
   // Step 4: apply layout matching and build skill entries
@@ -241,7 +242,7 @@ async function scanRepo(config: RepoConfig): Promise<{
     );
   }
 
-  return { skills, succeeded: true };
+  return { skills, succeeded: true, repoUrl };
 }
 
 async function main(): Promise<void> {
@@ -251,21 +252,36 @@ async function main(): Promise<void> {
   console.log(`[scanner] Scanning ${repos.length} repo(s)...`);
 
   const allSkills: SkillEntry[] = [];
+  const allRepos: ScannedRepo[] = [];
   let reposSucceeded = 0;
   let reposFailed = 0;
 
   for (const repoConfig of repos) {
-    const { skills, succeeded } = await scanRepo(repoConfig);
+    const { skills, succeeded, repoUrl } = await scanRepo(repoConfig);
+    const repoSlug = `${repoConfig.owner}/${repoConfig.repo}`;
     if (succeeded) {
       reposSucceeded++;
       allSkills.push(...skills);
+      allRepos.push({
+        repo: repoSlug,
+        repoUrl,
+        skillCount: skills.length,
+        status: "succeeded",
+      });
     } else {
       reposFailed++;
+      allRepos.push({
+        repo: repoSlug,
+        repoUrl,
+        skillCount: 0,
+        status: "failed",
+      });
     }
   }
 
   writeCatalog({
     skills: allSkills,
+    repos: allRepos,
     repoCount: repos.length,
     reposSucceeded,
     reposFailed,

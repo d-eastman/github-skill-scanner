@@ -14,9 +14,10 @@
 
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
-import type { SkillEntry } from "../../src/types/skills.js";
+import type { SkillEntry, ScannedRepo } from "../../src/types/skills.js";
 import { SkillCard } from "../../src/fe/components/SkillCard.js";
 import { SkillList } from "../../src/fe/components/SkillList.js";
+import { ScannedReposIndicator } from "../../src/fe/components/ScannedReposIndicator.js";
 // Test the real shared command builder (used by both SkillCard and CopyButton).
 import { buildInstallCommand } from "../../src/fe/installCommand.js";
 
@@ -366,5 +367,132 @@ describe("frontend unit tests", () => {
       expect(screen.getByText("Skill A")).toBeInTheDocument();
       expect(screen.getByText("Skill B")).toBeInTheDocument();
     });
+  });
+});
+
+// Helper: make a ScannedRepo fixture
+function makeScannedRepo(
+  repo: string,
+  skillCount: number,
+  status: "succeeded" | "failed" = "succeeded"
+): ScannedRepo {
+  return {
+    repo,
+    repoUrl: `https://github.com/${repo}`,
+    skillCount,
+    status,
+  };
+}
+
+describe("ScannedReposIndicator", () => {
+  // TC-114: shown when repos is present and non-empty
+  it("TC-114: renders <details> with aria-label when repos are present", () => {
+    const repos = [makeScannedRepo("a/b", 1)];
+    const { container } = render(<ScannedReposIndicator repos={repos} />);
+    const details = container.querySelector("details");
+    expect(details).toBeInTheDocument();
+    expect(details?.getAttribute("aria-label")).toBe("Scanned repositories");
+  });
+
+  // TC-115: singular form
+  it("TC-115: shows singular 'Scanning 1 repository' for one repo", () => {
+    const repos = [makeScannedRepo("a/b", 1)];
+    render(<ScannedReposIndicator repos={repos} />);
+    expect(screen.getByText("Scanning 1 repository")).toBeInTheDocument();
+    expect(screen.queryByText(/repositories/)).toBeNull();
+  });
+
+  // TC-116: plural form
+  it("TC-116: shows plural 'Scanning N repositories' for N > 1", () => {
+    const repos = [makeScannedRepo("a/a", 1), makeScannedRepo("b/b", 0)];
+    render(<ScannedReposIndicator repos={repos} />);
+    expect(screen.getByText("Scanning 2 repositories")).toBeInTheDocument();
+  });
+
+  // TC-117: repo links have correct href, target, rel
+  it("TC-117: each repo renders as a link with correct href, target, rel", () => {
+    const repos = [makeScannedRepo("anthropics/skills", 3)];
+    render(<ScannedReposIndicator repos={repos} />);
+    const link = screen.getByRole("link", { name: /anthropics\/skills/ });
+    expect(link).toBeInTheDocument();
+    expect(link.getAttribute("href")).toBe("https://github.com/anthropics/skills");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+
+  // TC-118: list is ul/li
+  it("TC-118: repo list is a <ul> of <li> elements", () => {
+    const repos = [makeScannedRepo("a/a", 0), makeScannedRepo("b/b", 0)];
+    const { container } = render(<ScannedReposIndicator repos={repos} />);
+    const ul = container.querySelector("details ul");
+    expect(ul).toBeInTheDocument();
+    expect(ul?.querySelectorAll("li")).toHaveLength(2);
+  });
+
+  // TC-119: failed repo shows "scan failed" tag
+  it("TC-119: renders scan failed tag for status: failed repos", () => {
+    const repos = [makeScannedRepo("someorg/broken-repo", 0, "failed")];
+    render(<ScannedReposIndicator repos={repos} />);
+    expect(screen.getByText("scan failed")).toBeInTheDocument();
+  });
+
+  // TC-120: succeeded repo with skills shows no "scan failed" tag
+  it("TC-120: no scan failed tag for succeeded repos with skills", () => {
+    const repos = [makeScannedRepo("a/b", 3, "succeeded")];
+    render(<ScannedReposIndicator repos={repos} />);
+    expect(screen.queryByText("scan failed")).toBeNull();
+  });
+
+  // TC-121: zero-skill succeeded repo shows no "scan failed" tag
+  it("TC-121: no scan failed tag for succeeded repos with zero skills", () => {
+    const repos = [makeScannedRepo("someorg/empty-repo", 0, "succeeded")];
+    render(<ScannedReposIndicator repos={repos} />);
+    expect(screen.queryByText("scan failed")).toBeNull();
+  });
+
+  // TC-122: mixed-status list — only failed entries get the tag
+  it("TC-122: scan failed tag appears only on failed repo in a mixed list", () => {
+    const repos = [
+      makeScannedRepo("a/succeeded-with-skills", 2, "succeeded"),
+      makeScannedRepo("b/succeeded-no-skills", 0, "succeeded"),
+      makeScannedRepo("c/failed", 0, "failed"),
+    ];
+    render(<ScannedReposIndicator repos={repos} />);
+
+    // Exactly one "scan failed" tag
+    const tags = screen.getAllByText("scan failed");
+    expect(tags).toHaveLength(1);
+
+    // It must be in the list item for "c/failed"
+    const failedLink = screen.getByRole("link", { name: /c\/failed/ });
+    expect(failedLink.closest("li")?.textContent).toContain("scan failed");
+
+    // The other items must not have it
+    const succeededLink = screen.getByRole("link", { name: /a\/succeeded-with-skills/ });
+    expect(succeededLink.closest("li")?.textContent).not.toContain("scan failed");
+  });
+
+  // TC-124: details has aria-label
+  it("TC-124: <details> element has aria-label='Scanned repositories'", () => {
+    const repos = [makeScannedRepo("a/b", 1)];
+    const { container } = render(<ScannedReposIndicator repos={repos} />);
+    const details = container.querySelector("details");
+    expect(details?.getAttribute("aria-label")).toBe("Scanned repositories");
+  });
+
+  // TC-125: closed by default (no open attribute)
+  it("TC-125: <details> is closed by default (no open attribute)", () => {
+    const repos = [makeScannedRepo("a/b", 1)];
+    const { container } = render(<ScannedReposIndicator repos={repos} />);
+    const details = container.querySelector("details");
+    expect(details?.hasAttribute("open")).toBe(false);
+  });
+
+  // TC-134: no aria-live region added by the indicator
+  it("TC-134: ScannedReposIndicator does not add any aria-live regions", () => {
+    const repos = [makeScannedRepo("a/b", 1)];
+    const { container } = render(<ScannedReposIndicator repos={repos} />);
+    const liveRegions = container.querySelectorAll("[aria-live]");
+    expect(liveRegions).toHaveLength(0);
   });
 });

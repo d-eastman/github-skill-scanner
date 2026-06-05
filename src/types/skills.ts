@@ -30,8 +30,30 @@ export interface SkillEntry {
 }
 
 /**
+ * Per-repo scan result record — ADR-002 addendum 2026-06-05.
+ * Written into metadata.repos[] by the scanner.
+ *
+ * Invariants (enforced at the writer):
+ *   - repos.length === repoCount
+ *   - sum(skillCount) === metadata.skillCount === skills.length
+ *   - status === "failed" implies skillCount === 0
+ *   - count(status==="succeeded") === reposSucceeded
+ *   - count(status==="failed")    === reposFailed
+ */
+export interface ScannedRepo {
+  repo: string;
+  repoUrl: string;
+  skillCount: number;
+  status: "succeeded" | "failed";
+}
+
+/**
  * Metadata written by the scanner at the top of every skills.json.
  * These fields are the Tier A health metrics from success-metrics.md.
+ *
+ * `repos` is an additive field added in the ADR-002 addendum (2026-06-05).
+ * It is always present in scanner output. The frontend reads it defensively:
+ * absence means an older skills.json — the indicator is hidden gracefully.
  */
 export interface SkillsMetadata {
   schemaVersion: number;
@@ -40,6 +62,7 @@ export interface SkillsMetadata {
   reposSucceeded: number;
   reposFailed: number;
   skillCount: number;
+  repos: ScannedRepo[];
 }
 
 /**

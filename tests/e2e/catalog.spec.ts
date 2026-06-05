@@ -89,3 +89,93 @@ test("copy button writes the command and shows then reverts feedback", async ({
   await expect(copyBtn).toHaveText("Copied!");
   await expect(copyBtn).toHaveText("Copy", { timeout: 4000 });
 });
+
+// --- SR-1 e2e cases ---
+
+// TC-136: indicator visible, summary shows count, closed by default
+test("TC-136: scanned repos indicator visible with correct summary count", async ({ page }) => {
+  await page.goto(APP_PATH);
+
+  // The <details> with aria-label must be present
+  const details = page.locator("details[aria-label='Scanned repositories']");
+  await expect(details).toBeVisible();
+
+  // Summary text: fixture has 3 repos
+  const summary = details.locator("summary");
+  await expect(summary).toHaveText("Scanning 3 repositories");
+
+  // Closed by default — the <details> element must not have the open attribute
+  await expect(details).not.toHaveAttribute("open");
+});
+
+// TC-137: expand reveals repo list, failed tag on broken-repo, no tag on empty-repo, 3 links total
+test("TC-137: expand reveals repo list with correct links and failed tag", async ({ page }) => {
+  await page.goto(APP_PATH);
+
+  // Expand the details
+  const summary = page.locator("details[aria-label='Scanned repositories'] summary");
+  await summary.click();
+
+  const repoList = page.locator("details[aria-label='Scanned repositories'] ul");
+  await expect(repoList).toBeVisible();
+
+  // All 3 repos are present as links
+  const repoItems = repoList.locator("li");
+  await expect(repoItems).toHaveCount(3);
+
+  // anthropics/skills link
+  const skillsLink = page.getByRole("link", { name: /anthropics\/skills/ }).filter({ hasNot: page.locator("span.visually-hidden") });
+  // Use a more reliable locator: find the anchor in the list with matching text
+  const skillsAnchor = repoList.locator("a").filter({ hasText: "anthropics/skills" });
+  await expect(skillsAnchor).toHaveAttribute("href", "https://github.com/anthropics/skills");
+
+  // someorg/broken-repo shows "scan failed" tag
+  const brokenItem = repoList.locator("li").filter({ hasText: "someorg/broken-repo" });
+  await expect(brokenItem.locator("span.repo-scan-failed")).toBeVisible();
+  await expect(brokenItem.locator("span.repo-scan-failed")).toHaveText("scan failed");
+
+  // someorg/empty-repo does NOT have a "scan failed" tag
+  const emptyItem = repoList.locator("li").filter({ hasText: "someorg/empty-repo" });
+  await expect(emptyItem.locator("span.repo-scan-failed")).toHaveCount(0);
+});
+
+// TC-138: existing autofocus test still passes with indicator present
+// (Validated by re-running the client-side search test which checks autofocus)
+test("TC-138: autofocus on search input not broken by indicator presence", async ({ page }) => {
+  await page.goto(APP_PATH);
+
+  const search = page.getByRole("searchbox");
+  await expect(search).toBeFocused();
+});
+
+// TC-139: copy command string unchanged — ends with -a github-copilot -y (TC-139 regression)
+test("TC-139: copy command string unchanged after SR-1 change", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto(APP_PATH);
+
+  const copyBtn = page.getByRole("button", {
+    name: "Copy install command for Frontend Design",
+  });
+  await copyBtn.click();
+
+  const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+  expect(clipboard).toBe(
+    "npx skills add https://github.com/anthropics/skills --skill frontend-design -a github-copilot -y"
+  );
+});
+
+// TC-144: no horizontal scrollbar at 320px (requirements must-have), with the
+// scanned-repos disclosure expanded (the widest header content state).
+test("TC-144: no horizontal overflow at 320px viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.goto(APP_PATH);
+
+  // Expand the repos disclosure — the longest repo slug is the widest header row.
+  await page.locator("details[aria-label='Scanned repositories'] summary").click();
+
+  // The document must not scroll horizontally at this width.
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth
+  );
+  expect(overflow).toBe(false);
+});

@@ -17,6 +17,7 @@ import { useState, useEffect, useMemo } from "react";
 import type { SkillsCatalog, SkillEntry, SkillsMetadata } from "../types/skills.js";
 import { SearchBar } from "./components/SearchBar.js";
 import { SkillList } from "./components/SkillList.js";
+import { ScannedReposIndicator } from "./components/ScannedReposIndicator.js";
 
 type Status = "loading" | "error" | "ready";
 
@@ -97,6 +98,11 @@ export default function App() {
         <h1>GitHub Skill Scanner</h1>
         <p>Agent skills across the ecosystem</p>
         {lastScannedDate && <p className="last-scanned">Last scanned: {lastScannedDate}</p>}
+        {status === "ready" &&
+          Array.isArray(metadata?.repos) &&
+          (metadata?.repos?.length ?? 0) > 0 && (
+            <ScannedReposIndicator repos={metadata!.repos} />
+          )}
       </header>
 
       <section aria-label="Skill catalog" aria-busy={status === "loading"}>

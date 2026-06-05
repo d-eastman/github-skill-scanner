@@ -172,3 +172,49 @@ input[type="search"]:disabled {
   white-space: nowrap;
   border-width: 0;
 }
+
+/* Scanned repos indicator — matches .last-scanned weight */
+.scanned-repos {
+  font-size: 0.875rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.scanned-repos summary {
+  cursor: pointer;
+  list-style: revert;
+  color: #666;
+}
+
+.scanned-repos summary:hover {
+  color: #444;
+}
+
+.scanned-repos-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0 0;
+}
+
+.scanned-repos-list li {
+  margin: 0.25rem 0;
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+
+.scanned-repos-list a {
+  color: #0066cc;
+  text-decoration: none;
+  font-size: 0.875rem;
+}
+
+.scanned-repos-list a:hover {
+  text-decoration: underline;
+}
+
+/* "scan failed" tag — muted, informational, not alarming */
+.repo-scan-failed {
+  font-size: 0.8rem;
+  color: #999;
+  margin-left: 0.5rem;
+}

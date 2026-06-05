@@ -1,11 +1,31 @@
 {
   "metadata": {
     "schemaVersion": 1,
-    "lastScanned": "2026-06-05T18:12:58.200Z",
+    "lastScanned": "2026-06-05T19:06:24.465Z",
     "repoCount": 3,
     "reposSucceeded": 3,
     "reposFailed": 0,
-    "skillCount": 26
+    "skillCount": 26,
+    "repos": [
+      {
+        "repo": "anthropics/skills",
+        "repoUrl": "https://github.com/anthropics/skills",
+        "skillCount": 18,
+        "status": "succeeded"
+      },
+      {
+        "repo": "juliusbrussee/caveman",
+        "repoUrl": "https://github.com/juliusbrussee/caveman",
+        "skillCount": 7,
+        "status": "succeeded"
+      },
+      {
+        "repo": "vercel-labs/skills",
+        "repoUrl": "https://github.com/vercel-labs/skills",
+        "skillCount": 1,
+        "status": "succeeded"
+      }
+    ]
   },
   "skills": [
     {

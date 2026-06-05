@@ -2,10 +2,30 @@
   "metadata": {
     "schemaVersion": 1,
     "lastScanned": "2026-06-05T00:00:00Z",
-    "repoCount": 1,
-    "reposSucceeded": 1,
-    "reposFailed": 0,
-    "skillCount": 2
+    "repoCount": 3,
+    "reposSucceeded": 2,
+    "reposFailed": 1,
+    "skillCount": 2,
+    "repos": [
+      {
+        "repo": "anthropics/skills",
+        "repoUrl": "https://github.com/anthropics/skills",
+        "skillCount": 2,
+        "status": "succeeded"
+      },
+      {
+        "repo": "someorg/broken-repo",
+        "repoUrl": "https://github.com/someorg/broken-repo",
+        "skillCount": 0,
+        "status": "failed"
+      },
+      {
+        "repo": "someorg/empty-repo",
+        "repoUrl": "https://github.com/someorg/empty-repo",
+        "skillCount": 0,
+        "status": "succeeded"
+      }
+    ]
   },
   "skills": [
     {

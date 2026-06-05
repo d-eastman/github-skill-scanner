@@ -183,3 +183,141 @@ we'd add them as a debugging supplement, not as the primary contract, if scans g
 - ADR-001 (how each entry is discovered)
 - ADR-003 (how the frontend fetches this file)
 - ADR-005 (how the frontend renders it)
+
+---
+
+## Addendum — 2026-06-05: `metadata.repos` (additive; configured-scan-list extension)
+
+**Author:** Marcus Chen (Solution Architect)
+**Resolves:** OQ-SR-3 in `requirements-scanned-repos.md` (Interpretation B).
+**Status of this addendum:** Accepted as part of ADR-002. **No `schemaVersion` bump (stays `1`).**
+
+### Why this is an amendment and not a new ADR
+
+`metadata.repos` is a purely additive optional field. ADR-002's "Neutral / Watch" section already
+declares the governing rule: *"Additive optional fields … do **not** bump the version"* and *"any
+breaking change increments it and gets a **new** ADR that supersedes this one."* Recording an
+additive field as an addendum to the contract it extends keeps a single source of truth — which is
+exactly what that rule was written to enable. A separate ADR would only be warranted if this changed
+or removed an existing field (it does not).
+
+### The rule applied, and the verdict
+
+**Rule:** A change is *additive* (no `schemaVersion` bump) if it neither removes, renames, retypes,
+nor changes the meaning of any existing field — such that a frontend built against the prior schema
+continues to read the file correctly by simply ignoring the new key.
+
+**Verdict: ADDITIVE. `schemaVersion` remains `1`.** Adding `metadata.repos` introduces one new key
+on `metadata`. Every v1 field (`lastScanned`, `repoCount`, `reposSucceeded`, `reposFailed`,
+`skillCount`) and the entire `skills` array are untouched in name, type, and meaning. A v1 reader
+ignores the new key and works unchanged.
+
+### The exact shape of `metadata.repos`
+
+The BA's proposed shape is **confirmed** (one clarification on the enum, below). Each element
+describes one repo from `src/scan/repos.json` *as the scanner saw it at scan time*:
+
+```ts
+// Add to src/types/skills.ts:
+export interface ScannedRepo {
+  repo: string;        // "owner/repo" — same form as SkillEntry.repo
+  repoUrl: string;     // canonical, no trailing slash — same construction as SkillEntry.repoUrl
+  skillCount: number;  // skills found in THIS repo this run (0 for a clean scan with no skills)
+  status: "succeeded" | "failed";
+}
+
+export interface SkillsMetadata {
+  schemaVersion: number;
+  lastScanned: string;
+  repoCount: number;
+  reposSucceeded: number;
+  reposFailed: number;
+  skillCount: number;       // unchanged — total across all repos == skills.length
+  repos: ScannedRepo[];     // NEW — always present in scanner output (empty [] only if repos.json were empty)
+}
+```
+
+```jsonc
+"repos": [
+  { "repo": "anthropics/skills",   "repoUrl": "https://github.com/anthropics/skills",   "skillCount": 5, "status": "succeeded" },
+  { "repo": "someorg/empty-repo",  "repoUrl": "https://github.com/someorg/empty-repo",  "skillCount": 0, "status": "succeeded" },
+  { "repo": "someorg/broken-repo", "repoUrl": "https://github.com/someorg/broken-repo", "skillCount": 0, "status": "failed" }
+]
+```
+
+### Decisions on the open shape questions
+
+1. **Is a 2-value `status` enum enough? Is the "scanned-but-no-skills vs failed" distinction
+   preserved?** Yes, and yes — keep the 2-value enum. The scanner (`src/scan/index.ts`, `scanRepo`)
+   already returns the two facts independently: `succeeded: true` with an empty skills array for a
+   clean scan that found nothing (returns `{ skills: [], succeeded: true }`), versus
+   `succeeded: false` for an error (could-not-determine-branch / could-not-fetch-tree paths).
+   Mapping that onto `status` plus `skillCount` keeps both facts addressable:
+   - **scanned, no skills:** `{ skillCount: 0, status: "succeeded" }`
+   - **failed:** `{ status: "failed" }` (and `skillCount` is `0` because no tree was read)
+
+   I considered a 3-value enum (`"succeeded" | "empty" | "failed"`) and **rejected it.** "Empty" is
+   not an independent state — it is fully derived from `status === "succeeded" && skillCount === 0`.
+   Encoding it in the enum would duplicate that fact, create a third state the scanner doesn't
+   actually track, and risk the enum and `skillCount` disagreeing. The requirements
+   (`requirements-scanned-repos.md` must-have #3, Interpretation B) call for exactly this
+   distinction, and the 2-value form delivers it: the frontend shows `skillCount: 0` +
+   `status: "succeeded"` with no warning, and visually distinguishes `status: "failed"`.
+
+2. **Sort order.** `repos` is emitted sorted **ascending by `repo`** (the `owner/repo` string),
+   case-sensitive — the same primary key and comparator style as the existing `skills` sort in
+   `src/scan/writer.ts` (`compareSkills`). Note: the scanner currently iterates `repos.json` in
+   *config* order; the writer must sort the assembled `repos` array by `repo` before writing, so git
+   diffs stay stable regardless of config-file ordering. Matches `requirements-scanned-repos.md`
+   must-have #3 (Interpretation B): "match scanner sort order from ADR-002."
+
+3. **Always present?** **Yes — `repos` is always an array, never absent in newly-written files,**
+   mirroring the `skills` always-array rule. An empty `repos.json` already throws at load
+   (`src/scan/index.ts` `loadReposConfig`), so in practice `repos` has at least one element; but the
+   *type* is a (possibly empty) array, never optional, in freshly-written output. This keeps the
+   present-day frontend simple: when reading current data it can assume `metadata.repos` is an array.
+
+### Frontend compatibility / fallback expectation
+
+This is consistent with how I version the contract. The "always present" guarantee above applies to
+**files written by the scanner from this addendum onward.** It does **not** retroactively rewrite
+older `skills.json` files (a cached/older deploy, or a fixture from before this change), which have
+no `repos` key at all. Because we deliberately did **not** bump `schemaVersion`, the frontend cannot
+use the version number to tell old from new — so the field's *presence* is the signal:
+
+- **`metadata.repos` present (array):** use it directly as the configured scan list
+  (Interpretation B). Do not re-derive from `skills[]`.
+- **`metadata.repos` absent (`undefined`):** degrade gracefully — either hide the repos indicator or
+  fall back to the Interpretation-A derivation `[...new Set(skills.map(s => s.repo))]`. No crash, no
+  `undefined.length`.
+
+This "read by presence, not by version" defensiveness is the correct pattern *precisely because* the
+change is additive: additive fields are optional from the reader's point of view, so the reader must
+treat them as optional. That is the symmetric obligation that lets us avoid the `schemaVersion` bump.
+The field should therefore be modeled to the frontend as optional at the read boundary
+(`metadata.repos?: ScannedRepo[]`, or a `Array.isArray(metadata.repos)` guard before use) even though
+the scanner always writes it. The shared-type mechanics — one always-written interface vs. a
+reader-side optional — are the Lead's call; the contract obligation is fixed:
+**scanner always writes `repos`; frontend never assumes it is present.**
+
+### Invariants (scanner-enforced, single write site `src/scan/writer.ts`)
+
+These let the frontend trust `metadata.repos` without re-deriving from `skills[]`:
+
+- `repos.length === metadata.repoCount`
+- `count(repos[].status === "succeeded") === metadata.reposSucceeded` (and likewise `failed`)
+- `sum(repos[].skillCount) === metadata.skillCount === skills.length`
+- `status === "failed"` implies `skillCount === 0`
+
+Assert these in the writer the same way `skillCount === skills.length` is already asserted
+(`writeCatalog` invariant check).
+
+### Consequences of this addendum
+
+- **Positive:** UI shows the true configured scan scope incl. zero-skill and failed repos with no new
+  fetch and no breaking change; the per-repo data the scanner already tracks gets a documented home.
+- **Negative / watch:** A further set of counts must stay in sync — `repos[]` entries and their
+  `status`/`skillCount` must agree with `repoCount`/`reposSucceeded`/`reposFailed`/`skillCount`.
+  Single write site, low risk; covered by the invariants above.
+- **Neutral:** If a future need *does* require breaking `repos` (e.g. renaming `status` values), that
+  is a new ADR that supersedes this one and bumps `schemaVersion` — unchanged from the base policy.
