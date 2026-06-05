@@ -43,7 +43,7 @@ artifacts look like and how the personas hand off.
 | 2026-06-04 | [`success-metrics.md`](success-metrics.md) | Draft | v1 success definition, Tier A health metrics (free, from metadata envelope + Actions), Tier B usage metrics (deferred), instrumentation asks, guardrails |
 | 2026-06-04 | [`backlog.md`](backlog.md) | Active | Prioritized v1 backlog — 6 epics, 20 stories, MoSCoW tagged, mapped to must-haves and ADRs |
 | 2026-06-04 | [`phase-plan.md`](phase-plan.md) | Active | 5-day phase plan with day-by-day sequence, critical path, 4 gates, cut line, and go/no-go criteria |
-| 2026-06-04 | [`scope-decision-log.md`](scope-decision-log.md) | Active — updated SR-1 ship | 26 scope decisions: includes SR-1 ship (entry #26), 3-repo scan list (entry #23), TC-144 closed (entry #24), render-guard test fast-follow (entry #25) |
+| 2026-06-04 | [`scope-decision-log.md`](scope-decision-log.md) | Active — updated UI-1 ship | 28 scope decisions: includes UI-1 ship (entry #28), SR-1 ship (entry #26), 3-repo scan list (entry #23) |
 | 2026-06-04 | [`user-flows.md`](user-flows.md) | Ready for Lead review | Single-screen catalog: primary flow, annotated wireframe, all 5 states with microcopy, accessibility notes, heuristic check |
 | 2026-06-04 | [`deployment-runbook.md`](deployment-runbook.md) | Active | One-time setup (PAT + Pages enable), scan-to-deploy trigger chain, manual run instructions, incident runbook (5 failure modes), observability |
 | 2026-06-04 | [`tech-debt.md`](tech-debt.md) | Active | 9 items: TD-001 through TD-009; TD-007/008/009 added post-security review |
@@ -52,3 +52,6 @@ artifacts look like and how the personas hand off.
 | 2026-06-04 | [`go-no-go.md`](go-no-go.md) | LAUNCHED 2026-06-05 | v1 live; SR-1 ship logged in scope-decision-log.md entry #26 |
 | 2026-06-05 | [`requirements-scanned-repos.md`](requirements-scanned-repos.md) | Draft — pending OQ-SR-1 | Delta: non-intrusive scanned-repos indicator in header; surfaces A-vs-B interpretation question; 3 open questions for stakeholder and Architect |
 | 2026-06-05 | [`adr-002-data-schema-output-contract.md`](adr-002-data-schema-output-contract.md) | Addendum (2026-06-05) | Resolves OQ-SR-3: `metadata.repos` confirmed additive (no `schemaVersion` bump); exact shape (2-value `status` enum + `skillCount`), sort by `repo`, always-present, presence-based frontend fallback |
+| 2026-06-05 | [`requirements-ui-styling.md`](requirements-ui-styling.md) | Approved — UI-1 shipped | Dark-developer restyle with design-token system; CSS-only change; OQ-UI-1 resolved (system fonts); UI-1 ship decision entry #28 |
+| 2026-06-05 | [`test-plan.md`](test-plan.md) — UI-1 section | Executed — all pass | Dark-developer restyle QA pass: 90/90 unit PASS, 12/12 e2e PASS (BUG-002 fixed), 0 vulns, all 9 contrast pairings PASS |
+| 2026-06-05 | [`bug-reports/BUG-002.md`](bug-reports/BUG-002.md) | CLOSED — fixed | TC-163 e2e test defect (missing waitFor); one-line fix applied; e2e suite now 12/12 |

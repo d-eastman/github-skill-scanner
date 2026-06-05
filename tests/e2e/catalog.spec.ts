@@ -164,6 +164,60 @@ test("TC-139: copy command string unchanged after SR-1 change", async ({ page, c
   );
 });
 
+// TC-160: body background is the dark --bg color (rgb(13, 17, 23) = #0d1117).
+// Permanent regression guard: confirms the full-viewport dark background is applied
+// and has not been accidentally overridden by a browser default.
+test("TC-160: body background is the dark --bg color", async ({ page }) => {
+  await page.goto(APP_PATH);
+  const bgColor = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(bgColor).toBe("rgb(13, 17, 23)");
+});
+
+// TC-161: span.repo-scan-failed color is the new #848d97, not the old failing #999.
+// Expand the disclosure first so the failed-repo tag is rendered.
+test("TC-161: span.repo-scan-failed color is not the old rgb(153,153,153)", async ({
+  page,
+}) => {
+  await page.goto(APP_PATH);
+
+  // Expand the disclosure so span.repo-scan-failed is in the DOM.
+  await page.locator("details[aria-label='Scanned repositories'] summary").click();
+
+  const color = await page.evaluate(() => {
+    const span = document.querySelector("span.repo-scan-failed");
+    if (!span) throw new Error("span.repo-scan-failed not found");
+    return getComputedStyle(span).color;
+  });
+
+  // Must NOT be the old #999 value (fails WCAG AA for small text on white).
+  expect(color).not.toBe("rgb(153, 153, 153)");
+  // Must be the new token value: #848d97 = rgb(132, 141, 151).
+  expect(color).toBe("rgb(132, 141, 151)");
+});
+
+// TC-163: ::before terminal prompt does not affect textContent.
+// The "$ " is CSS-only (user-select: none) and must NOT appear in the element's
+// textContent — Playwright getByText uses textContent, so the existing install
+// command visibility test must still pass unchanged.
+test("TC-163: code::before prompt does not alter element textContent", async ({ page }) => {
+  await page.goto(APP_PATH);
+
+  // Wait for the catalog to render before reading the DOM (BUG-002: the fetch +
+  // React render is async; querying immediately after goto returns null).
+  await page.locator(".skill-card code").first().waitFor();
+
+  // textContent of the <code> element must be the bare command string, no "$ " prefix.
+  const textContent = await page.evaluate(() => {
+    const code = document.querySelector(".skill-card code");
+    if (!code) throw new Error("skill-card code element not found");
+    return code.textContent;
+  });
+
+  expect(textContent).toBe(
+    "npx skills add https://github.com/anthropics/skills --skill frontend-design -a github-copilot -y"
+  );
+});
+
 // TC-144: no horizontal scrollbar at 320px (requirements must-have), with the
 // scanned-repos disclosure expanded (the widest header content state).
 test("TC-144: no horizontal overflow at 320px viewport", async ({ page }) => {

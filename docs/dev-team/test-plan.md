@@ -1617,3 +1617,803 @@ existing e2e tests that read `catalog.skills.length` and assert card counts stil
 fixture `metadata` object is extended — the `skills` array itself is unchanged, but the `metadata`
 shape changes, and any e2e assertion that reads `metadata` directly (such as the base-path fetch
 test asserting `Array.isArray(catalog.skills)`) must be re-confirmed.
+
+---
+
+# UI Dark Restyle (UI-1)
+
+**Feature:** Dark Developer UI Restyle
+**Author:** Remy Dubois (QA Engineer)
+**Date:** 2026-06-05
+**Status:** PRE-IMPLEMENTATION — test cases authored before build begins
+**Source documents:** requirements-ui-styling.md; user-flows.md Section 9; existing test suite
+(90 unit tests in 5 files, 9 e2e tests in catalog.spec.ts)
+
+---
+
+## UI-1 Scope
+
+### What this section tests
+
+Regression protection for all existing DOM contracts that a CSS restyle could accidentally break,
+plus new verification cases for the dark-developer palette: computed-style smoke checks automatable
+in e2e, contrast verification via tool-assisted manual review, visual rendering of all five states,
+focus-ring visibility on dark backgrounds, and the 320px no-scroll guarantee.
+
+### What this section does NOT test
+
+- Any interaction behavior change (none is in scope — this is CSS-only)
+- Light-mode or `prefers-color-scheme` switching (single dark theme only per requirements)
+- Animation or transition effects (not required for v1 per requirements-ui-styling.md)
+- Screen reader announcement of colors (contrast is a visual/tool concern, not an AT concern)
+- Cross-browser rendering pixel differences between Chrome and Firefox (both must pass the
+  contrast gate and the computed-style assertions; visual fidelity differences are acceptable)
+
+### What constitutes a regression for this feature
+
+The pass bar for regression is strict and simple: `npm run test` reports 90/90 passing and
+`npx playwright test` reports 9/9 passing, with zero changes to any test file. A restyle that
+requires editing an existing test selector or text assertion to make it pass is a contract
+break, not a test fix.
+
+### The `.repo-scan-failed` color value this plan tests against
+
+The new value is `#848d97` (`var(--tag-scan-failed)` per user-flows.md Section 9c). The old
+value is `#999` (approximately `rgb(153, 153, 153)`). Tests assert the new value is applied
+and the old value is absent. Contrast: `#848d97` on `--surface` (`#161b22`) = 5.11:1 (PASS,
+AA 4.5:1 threshold). `#848d97` on `--bg` (`#0d1117`) = 5.67:1 (PASS).
+
+---
+
+## UI-1 Test Cases
+
+TC numbers begin at 150. Regression cases are 150–159, new automated visual/computed-style
+cases are 160–164, contrast verification cases are 170–176 (manual/tool-assisted), visual
+state cases are 180–184 (manual), focus-ring cases are 190–194 (manual/keyboard).
+
+---
+
+### Regression — Existing Suite Must Pass Unchanged
+
+#### TC-150: Full unit suite (90 tests) passes after CSS-only restyle
+**Hypothesis:** The restyle touches only `index.css` (and optionally a new `tokens.css`). No TSX
+file is modified unless a single class name addition is required (and only with Lead coordination).
+Since the 90 unit tests run in jsdom and do not evaluate CSS, they are inherently CSS-agnostic —
+but any accidental TSX edit or selector rename would break them.
+**Preconditions:** Restyle implementation complete; no TSX changes except a documented class-name
+addition if one was required and coordinated with the Lead.
+**Level:** Automated (Vitest — `npm run test`)
+**Automatable now:** Yes — this is the primary regression gate.
+**Status:** NOT YET WRITTEN (pending implementation)
+
+**Steps:**
+1. Run `npm run test`.
+2. Assert exit code 0 and "90 passed (90)" in output.
+
+**Expected result:** 90/90 tests pass. Zero failures. No test modified to accommodate the restyle.
+**Pass criterion:** The suite is green with zero changes to any file under `tests/`.
+
+**DOM-contract assertions this protects (what a careless restyle could break):**
+
+The following selectors and text strings are used verbatim in the unit and e2e suites. Any
+rename, removal, or structural change to these would cause test failures that must be treated
+as regressions, not test updates:
+
+| Contract | Selector / value | Test(s) that depend on it |
+|----------|-----------------|--------------------------|
+| CSS class | `ul.skill-list > li` | e2e: card count assertion (2 cards) |
+| CSS class | `span.repo-scan-failed` | e2e TC-137 locator; unit TC-119, TC-122 |
+| CSS class | `details[aria-label='Scanned repositories']` | e2e TC-136, TC-137, TC-144; unit TC-114, TC-124 |
+| CSS class | `details ul` | unit TC-118: `container.querySelector("details ul")` |
+| Element type | `<code>` | unit: `codeElement.tagName === "CODE"` (TC-041 area) |
+| Element type | `<h1>` | e2e: `getByRole("heading", { level: 1, name: "GitHub Skill Scanner" })` |
+| Element type | `<h2>` | e2e: `getByRole("heading", { level: 2 })` for card names |
+| ARIA attribute | `aria-label="Scanned repositories"` on `<details>` | e2e TC-136, TC-137, TC-144; unit TC-114, TC-124 |
+| ARIA attribute | `role="alert"` on error container | user-flows.md a11y contract; styling must not hide it |
+| Role | `role="searchbox"` from `<input type="search">` | e2e: `page.getByRole("searchbox")` |
+| Visible text | `"Copy"` | e2e: `toHaveText("Copy")` |
+| Visible text | `"Copied!"` | e2e: `toHaveText("Copied!")` |
+| Visible text | `"Scanning N repositories"` | unit TC-115, TC-116; e2e TC-136 |
+| Visible text | `"scan failed"` | unit TC-119, TC-122; e2e TC-137 |
+| Visible text | exact install command string including `-a github-copilot -y` | e2e: `toBeVisible()` + clipboard assertion |
+| Visible text | `"No skills found yet."` | e2e and unit |
+| Visible text | `/No skills match/` | e2e and unit |
+| Visible text | `"GitHub Skill Scanner"` (h1) | e2e |
+| Class | `.sr-only` | must not be altered — it is accessibility infrastructure |
+| Class | `.visually-hidden` | must not be altered — it is accessibility infrastructure |
+
+The specific failure modes a restyle can trigger:
+- Renaming `.skill-card` breaks `container.querySelectorAll("p")` scoped to that class.
+- Altering `.sr-only` rules (e.g., removing `position: absolute` or adding `display: none`)
+  would visually hide accessible labels that the test suite verifies are present.
+- Adding `display: none` or `visibility: hidden` to `.state-message` or the `[role="alert"]`
+  container would suppress the error state announcement and fail user-flows.md a11y contracts.
+- Changing `<code>` to a `<span>` via TSX edit would break the `tagName === "CODE"` assertion.
+- Any CSS rule that sets `content` on a pseudo-element of a heading or button will not affect
+  `textContent` (used by Playwright `toHaveText`) but could affect visual text — manual
+  verification of the `::before` terminal prompt (if implemented) is included in TC-163.
+
+---
+
+#### TC-151: Full e2e suite (9 tests) passes after CSS-only restyle
+**Hypothesis:** All 9 Playwright tests in `tests/e2e/catalog.spec.ts` pass unchanged. The
+restyle must not alter any selector, accessible name, or text string that Playwright uses to
+locate elements or assert content.
+**Preconditions:** Restyle implementation complete; `npx playwright test` runnable against
+`npm run preview`.
+**Level:** e2e (Playwright — `npx playwright test`)
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN (pending implementation)
+
+**Steps:**
+1. Build: `npm run build`.
+2. Start preview server: `npm run preview` (or equivalent).
+3. Run: `npx playwright test`.
+4. Assert 9/9 pass.
+
+**Expected result:** All 9 e2e tests pass. Zero failures. No test file modified.
+**Pass criterion:** Green suite with zero changes to `tests/e2e/catalog.spec.ts`.
+
+---
+
+#### TC-152: TypeScript typecheck passes after CSS changes
+**Hypothesis:** The restyle is CSS-only. `npm run typecheck` must exit 0 after the restyle.
+If a one-line class addition was made to a TSX file (per the requirements assumption), that
+one change must not introduce TypeScript errors.
+**Preconditions:** Restyle implementation complete.
+**Level:** Automated (tsc — `npm run typecheck`)
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN (pending implementation)
+
+**Steps:**
+1. Run `npm run typecheck`.
+
+**Expected result:** Zero TypeScript errors.
+
+---
+
+#### TC-153: Production build succeeds and CSS artifact is present
+**Hypothesis:** `npm run build` succeeds and `dist/assets/` contains a `.css` file. The build
+size of the CSS artifact may increase modestly (tokens block + new rules); this is acceptable
+and is not a failure criterion. The test confirms the build pipeline is not broken by the CSS
+changes.
+**Preconditions:** Restyle implementation complete.
+**Level:** Automated (build script)
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN (pending implementation)
+
+**Steps:**
+1. Run `npm run build`.
+2. Assert exit code 0.
+3. Assert at least one `.css` file exists under `dist/assets/`.
+
+**Expected result:** Build succeeds; CSS artifact present. `dist/data/skills.json` is also
+present (the existing ADR-003 guard — confirm this still holds).
+
+---
+
+#### TC-154: No raw hex values remain in `index.css` after restyle
+**Hypothesis:** The requirements state explicitly that all inline hex values must be replaced by
+CSS custom properties. A post-restyle grep for bare hex values (`#` followed by 3 or 6 hex
+digits) outside comment lines is a sufficient conformance check for the token migration.
+This is an implementation-correctness check, not a DOM-contract regression check — but it
+is automated and fast, so it belongs in the regression suite.
+**Preconditions:** Restyle implementation complete.
+**Level:** Automated (grep — shell check)
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN (pending implementation)
+
+**Steps:**
+1. Run: `grep -v '^\s*/\*' src/fe/index.css | grep -E '#[0-9a-fA-F]{3,6}\b'`
+   (or equivalent: search for hex color patterns, excluding comment lines).
+2. Assert zero matches.
+
+**Expected result:** Zero lines with bare hex values outside comments. If a `tokens.css` file
+was split out, run the same check on that file (it should contain only the `:root {}` block
+with tokens, and the hex values there are intentional — but they should be only in that block,
+nowhere else in the stylesheet).
+**Note for Lead:** The grep must exclude the `:root {}` token block if it lives in the same
+file. The intent is to confirm no hex values exist outside the token declarations. The exact
+grep pattern should be confirmed with the Lead at implementation time.
+
+---
+
+#### TC-155: `.sr-only` and `.visually-hidden` rules are bitwise unchanged
+**Hypothesis:** The requirements call out that these two classes must not be altered. A direct
+diff of the two rules before and after the restyle is the verification method.
+**Preconditions:** Baseline `index.css` committed before restyle begins; restyle implementation
+complete.
+**Level:** Automated (git diff — shell check)
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN (pending implementation)
+
+**Steps:**
+1. Run: `git diff HEAD~1 -- src/fe/index.css | grep -A 10 '\.sr-only\|\.visually-hidden'`
+   (or equivalent: diff the before/after CSS for these two selectors).
+2. Assert no changes to either rule's property declarations.
+
+**Expected result:** Both rules are identical before and after the restyle. Any change to
+`.sr-only` or `.visually-hidden` is a hard failure and must be reverted before shipping.
+
+---
+
+### New Automated Cases — Computed-Style Smoke Checks
+
+These cases are the 2 new e2e computed-style assertions I recommend adding to `catalog.spec.ts`.
+They are cheap to write, provide permanent regression protection against the dark theme being
+accidentally reverted or overridden, and catch the two highest-risk color regressions identified
+in the requirements: (a) body still white, (b) `.repo-scan-failed` reverts to old `#999` gray.
+
+**Recommendation:** Add both TC-160 and TC-161 to `catalog.spec.ts` as new Playwright tests.
+They require no new dependencies — `page.evaluate` with `getComputedStyle` is standard Playwright.
+They are fast (no interaction, just DOM inspection) and will not flake.
+
+---
+
+#### TC-160: e2e computed-style — `body` background is the dark `--bg` color
+**Hypothesis:** After the restyle, `getComputedStyle(document.body).backgroundColor` (or
+`getComputedStyle(document.documentElement).backgroundColor`) returns the RGB equivalent of
+`--bg` (`#0d1117` = `rgb(13, 17, 23)`). This confirms the full-viewport dark background is
+applied and has not been overridden by a browser default or a more specific rule.
+**Preconditions:** Restyle implementation complete; e2e suite runnable.
+**Level:** e2e (Playwright — new test in `tests/e2e/catalog.spec.ts`)
+**Automatable now:** Yes — recommend adding immediately.
+**Status:** NOT YET WRITTEN (pending implementation)
+
+**Steps:**
+1. Navigate to the app.
+2. Evaluate: `getComputedStyle(document.body).backgroundColor`.
+3. Assert result equals `"rgb(13, 17, 23)"`.
+
+**Expected result:** `rgb(13, 17, 23)`. Any other value (especially `rgba(0, 0, 0, 0)` or
+`rgb(255, 255, 255)`) is a failure indicating the body background was not set or was overridden.
+**Why this matters:** The requirements note that the current stylesheet does not style `body` at
+all — the page background is browser-default white. This test is the permanent regression guard
+that the fix was applied and stays applied.
+
+---
+
+#### TC-161: e2e computed-style — `span.repo-scan-failed` color is NOT the old `#999`
+**Hypothesis:** After the restyle, `getComputedStyle(span.repo-scan-failed).color` is not
+`rgb(153, 153, 153)` (the old `#999` value that fails WCAG AA for small text). The test
+asserts the absence of the old value rather than the presence of a specific new value, so
+it remains valid if the exact token value is refined during implementation.
+**Preconditions:** Restyle implementation complete; fixture includes a failed repo so
+`span.repo-scan-failed` is present in the DOM (TC-135 prerequisite already met).
+**Level:** e2e (Playwright — new test in `tests/e2e/catalog.spec.ts`)
+**Automatable now:** Yes — recommend adding immediately.
+**Status:** NOT YET WRITTEN (pending implementation)
+
+**Steps:**
+1. Navigate to the app.
+2. Expand the scanned repos disclosure (click `<summary>`).
+3. Locate `span.repo-scan-failed`.
+4. Evaluate: `getComputedStyle(span).color`.
+5. Assert result is NOT `"rgb(153, 153, 153)"`.
+6. Assert result IS `"rgb(132, 141, 151)"` (the RGB equivalent of `#848d97`).
+
+**Expected result:** Color is `rgb(132, 141, 151)`. The old value `rgb(153, 153, 153)` must not
+appear.
+**Note:** Step 6 asserts the positive value for tighter regression protection. If the UX designer
+later adjusts the token, only this assertion needs updating — the "not `#999`" check in step 5
+remains valid regardless.
+
+---
+
+#### TC-162: e2e computed-style — `.skill-card` background is the dark surface color
+**Hypothesis:** `getComputedStyle(skillCard).backgroundColor` returns `rgb(22, 27, 34)` (the
+RGB equivalent of `--surface` `#161b22`). This confirms the card surface token is applied
+and that the old `#fafafa` light surface is gone.
+**Preconditions:** Restyle implementation complete; populated state loaded (skill cards visible).
+**Level:** e2e (Playwright — optional third smoke check)
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN (pending implementation)
+
+**Steps:**
+1. Navigate to the app (populated state).
+2. Locate the first `.skill-card` element.
+3. Evaluate its `backgroundColor`.
+4. Assert result equals `"rgb(22, 27, 34)"`.
+5. Assert result does NOT equal `"rgb(250, 250, 250)"` (old `#fafafa`).
+
+**Expected result:** `rgb(22, 27, 34)`. The old light card surface must not appear.
+**Classification:** Recommended but lower priority than TC-160 and TC-161. Add if the Lead
+is writing the computed-style tests anyway — marginal cost, additional regression signal.
+
+---
+
+#### TC-163: `::before` terminal prompt (if implemented) — does not affect `textContent`
+**Hypothesis:** If the optional `code::before { content: "$ " }` is implemented per
+user-flows.md Section 9g, the `$ ` prefix is a CSS pseudo-element and does not appear in
+`element.textContent`. The existing e2e test that asserts the exact install command string
+via `page.getByText(...)` must still pass — Playwright's `getByText` uses text content,
+not rendered visual text.
+**Preconditions:** `::before` terminal prompt implemented; e2e suite runnable.
+**Level:** e2e regression check (re-run existing install command visibility test)
+**Automatable now:** Yes — this is a re-run of the existing test, not a new one.
+**Status:** NOT YET WRITTEN (applies only if `::before` is implemented)
+
+**Steps:**
+1. Confirm `::before` is present in the CSS.
+2. Run the existing e2e test: `page.getByText("npx skills add ... -a github-copilot -y")`.
+3. Assert it still passes.
+
+**Expected result:** `getByText` locates the element by text content; `::before` content is
+not in `textContent`; test passes unchanged.
+**Note:** If this test fails, the `::before` implementation incorrectly used a real DOM text
+node rather than a CSS pseudo-element. That is a test-contract regression and must be fixed
+before shipping.
+
+---
+
+### Contrast Verification — Manual / Tool-Assisted
+
+These cases are inherently manual. The ratios are pre-computed in user-flows.md Section 9c
+and verified against the WCAG 2.1 relative luminance formula. QA's job is to confirm the
+implementation matches the spec and spot-check with an external contrast tool.
+
+**Verification method (applies to all TC-170 through TC-176):**
+
+1. Build the app and load it in a browser.
+2. Use the browser DevTools color picker (or a dedicated contrast tool such as the WebAIM
+   Contrast Checker, Colour Contrast Analyser, or the axe DevTools browser extension) to
+   sample the foreground and background colors as rendered.
+3. Compare the measured ratio against the WCAG AA threshold for that pairing.
+4. Accept if the measured ratio meets or exceeds the threshold. Fail if it falls below.
+
+The ratios in the table below are taken directly from user-flows.md Section 9c. They are
+the design spec's own stated values; QA verifies the implementation matches them. If the
+implementation uses different hex values than the spec, the ratios must be re-computed —
+use the WCAG relative luminance formula: `L = 0.2126*R + 0.7152*G + 0.0722*B` (where each
+channel is linearized), then `ratio = (L_lighter + 0.05) / (L_darker + 0.05)`.
+
+**Recommended tool:** axe DevTools (browser extension) for a full-page automated WCAG audit
+as a first pass, then manual spot-check of the specific pairings below for confirmation. The
+axe scan will catch failures the manual spot-check might miss, and the manual spot-check
+confirms the pairings that automated tools sometimes misreport on dark surfaces.
+
+---
+
+#### TC-170: Contrast — primary body text (`--text`) on page background (`--bg`)
+**Level:** Manual / tool-assisted
+**Automatable now:** No (requires rendered colors; not unit-automatable without an a11y lib)
+
+**Pairing:** `#c9d1d9` (text) on `#0d1117` (bg)
+**Expected ratio per spec:** 11.57:1
+**WCAG threshold:** 4.5:1 (AA normal text)
+**Pass criterion:** Measured ratio >= 4.5:1. Spec value 11.57:1 provides substantial margin;
+any result >= 4.5:1 is a pass. A result below 7:1 should be flagged as a concern even if it
+technically passes (margin has eroded).
+
+**Verification steps:**
+1. Load the app in a browser (populated state, a skill card visible).
+2. Sample the color of a card description paragraph (`<p>` text inside `.skill-card`).
+3. Sample the background of the page body (`<main>` or `body`).
+4. Compute or tool-check the ratio.
+
+---
+
+#### TC-171: Contrast — muted secondary text (`--text-muted`) on card surface (`--surface`)
+**Level:** Manual / tool-assisted
+
+**Pairing:** `#8b949e` (muted) on `#161b22` (surface)
+**Expected ratio per spec:** 5.46:1
+**WCAG threshold:** 4.5:1 (AA normal text)
+**Pass criterion:** Measured ratio >= 4.5:1.
+**Why this is the critical case:** This is the most likely failure point identified in the
+requirements risk table. `--text-muted` is used for `.last-scanned`, `.scanned-repos summary`,
+placeholder text, and disabled input text — all small text that must meet the 4.5:1 threshold.
+A measurement below 4.5:1 here is a hard blocker.
+
+**Verification steps:**
+1. Sample the "Last scanned" timestamp text.
+2. Sample the header background (which is `--bg` inherited from body, not `--surface`).
+   Note: the "Last scanned" line is in the header, which sits on `--bg`, not `--surface`.
+   The more conservative pairing to verify is `--text-muted` on `--surface` (the card context).
+3. Also verify the `.scanned-repos summary` text (on `--bg`) — expected ratio 6.06:1.
+4. Verify placeholder text in the disabled `input[type="search"]` (on `--surface`) — expected 5.46:1.
+
+---
+
+#### TC-172: Contrast — accent / link text (`--accent`) on card surface (`--surface`)
+**Level:** Manual / tool-assisted
+
+**Pairing:** `#58a6ff` (accent) on `#161b22` (surface)
+**Expected ratio per spec:** 6.51:1
+**WCAG threshold:** 4.5:1 (AA normal text)
+**Pass criterion:** Measured ratio >= 4.5:1.
+
+**Verification steps:**
+1. Sample a repo link inside a skill card (`<a>` text, `--accent` on `--surface`).
+2. Sample a repo link in the scanned-repos list (`<a>` text, `--accent` on `--bg`).
+   Expected ratio for second pairing: 7.22:1.
+
+---
+
+#### TC-173: Contrast — code text (`--code-text`) on code background (`--code-bg`)
+**Level:** Manual / tool-assisted
+
+**Pairing:** `#a5d6ff` (code-text) on `#1c2128` (code-bg)
+**Expected ratio per spec:** 9.56:1
+**WCAG threshold:** 4.5:1 (AA normal text)
+**Pass criterion:** Measured ratio >= 4.5:1.
+
+**Verification steps:**
+1. Sample the install command text inside the `<code>` element.
+2. Sample the code block background.
+3. Confirm the monospace font stack is applied (visual inspection — the font should appear
+   as a system monospace font, not a sans-serif).
+
+---
+
+#### TC-174: Contrast — scan-failed tag (`--tag-scan-failed`) on card or page background
+**Level:** Manual / tool-assisted
+
+**Pairing 1:** `#848d97` on `#161b22` (--surface)
+**Expected ratio per spec:** 5.11:1
+**Pairing 2:** `#848d97` on `#0d1117` (--bg)
+**Expected ratio per spec:** 5.67:1
+**WCAG threshold:** 4.5:1 (AA normal text — small text applies here, `.repo-scan-failed` is
+0.8rem per the typography table)
+**Pass criterion:** Measured ratio >= 4.5:1 for both pairings.
+
+**Verification steps:**
+1. Expand the scanned repos disclosure.
+2. Sample the "scan failed" tag text color.
+3. Sample the background of the list item it sits on (this is `--bg` since the list is in
+   the header, not inside a card).
+4. Also verify it does not appear as an accent or warning color (visual check — must be
+   visually secondary, clearly dimmer than primary text, not red/orange/cyan).
+
+---
+
+#### TC-175: Contrast — focus ring (`--focus-ring`) against adjacent surface
+**Level:** Manual / tool-assisted
+
+**Pairing 1 (search input on `--bg`):** `#58a6ff` focus ring against `#0d1117`
+**Expected ratio per spec:** 7.22:1
+**Pairing 2 (Copy button on `--surface`):** `#58a6ff` focus ring against `#161b22`
+**Expected ratio per spec:** 6.51:1
+**WCAG threshold:** 3:1 (WCAG 2.4.11 non-text contrast for focus indicators)
+**Pass criterion:** Measured ratio >= 3:1 for both pairings. Both pairings substantially
+exceed this threshold per the spec; a measurement below 5:1 should be flagged even if it
+technically passes.
+
+**Verification steps:**
+1. Tab to the search input; observe the focus ring (must be a solid outline, not the browser
+   default glow).
+2. Sample the ring color against the page background.
+3. Tab to a Copy button; observe the focus ring.
+4. Sample the ring color against the card surface.
+5. Tab to the `<summary>` element; observe its focus ring against the page background.
+6. Tab to a repo link (when disclosure is open); observe focus ring against page background.
+
+---
+
+#### TC-176: axe DevTools full-page WCAG AA audit
+**Hypothesis:** A full-page axe scan of the populated state returns zero WCAG AA violations.
+This is a belt-and-suspenders check that catches pairings the manual spot-checks above might
+miss (e.g., disabled input text, placeholder contrast, button border contrast).
+**Level:** Manual / tool-assisted (browser extension)
+**Automatable now:** Partially — axe-playwright could be added as a dependency to run this
+in CI. Not recommended as a required gate for this feature (it would add a dependency), but
+worth raising with the Lead as a future investment.
+
+**Verification steps:**
+1. Install the axe DevTools browser extension (or use the axe Playwright integration in an
+   ad-hoc run).
+2. Load the app in the populated state (skill cards visible, disclosure collapsed).
+3. Run the axe scan.
+4. Assert zero violations at WCAG AA level.
+5. Repeat with the disclosure expanded (to check `.repo-scan-failed` and repo link colors).
+6. Repeat with the error state visible (to check the `--danger` left-border and
+   `div[role="alert"]` container styling).
+
+**Expected result:** Zero WCAG AA violations across all tested states. If violations are
+reported, triage: any contrast failure against an element in the DOM-contract registry is
+a hard blocker; contrast failures on elements not visible in normal use can be deferred with
+PM sign-off.
+
+---
+
+### Visual State Verification — Manual
+
+All five states must render correctly in the dark palette. These cases require a running
+browser and cannot be automated as unit tests. They can be covered by Playwright screenshots
+for a visual regression baseline, but screenshot diffing is not part of the current test
+infrastructure — these are recorded as manual for this pass.
+
+---
+
+#### TC-180: Visual — Loading state renders with dark palette; no white background
+**Preconditions:** App served with network throttling or a delayed fetch mock to hold the
+loading state visible.
+**Level:** Manual (real browser)
+**Automatable now:** Partially — Playwright can intercept the fetch to delay it.
+
+**Steps:**
+1. Open the app with the network request delayed (browser DevTools throttle, or Playwright
+   `route` to delay the response).
+2. Observe the page before the data arrives.
+
+**Expected result:**
+- Page background is dark (no white viewport visible).
+- "Loading skills..." text is visible on the dark background.
+- Search input is rendered but visually muted (disabled state — `--surface` background,
+  `--text-muted` text color).
+- No light-colored surfaces visible anywhere.
+
+---
+
+#### TC-181: Visual — Error state renders correctly; `role="alert"` container is visible
+**Preconditions:** App served with the fetch configured to fail (network offline, or Playwright
+`route` to abort the request).
+**Level:** Manual (real browser)
+**Automatable now:** Partially — Playwright can route requests to fail.
+
+**Steps:**
+1. Load the app with the fetch aborted.
+2. Observe the error state.
+
+**Expected result:**
+- "Could not load the skill catalog." heading visible on dark card surface.
+- Error container (`.state-message` with `role="alert"`) has dark background — no white or
+  near-white background visible.
+- Left-border accent (`--danger` `#f85149`) is visible as a 3px left-side accent on the
+  error container.
+- CSS does not suppress the `[role="alert"]` container with `display:none`, `visibility:hidden`,
+  or `opacity: 0` — the container is visibly rendered.
+
+---
+
+#### TC-182: Visual — Empty state renders correctly (zero skills, repos indicator visible)
+**Preconditions:** Fixture temporarily modified to return `skills: []` with `metadata.repos`
+present.
+**Level:** Manual (real browser)
+**Automatable now:** Partially — Playwright can serve a modified fixture.
+
+**Steps:**
+1. Load the app with an empty skills array but valid `metadata.repos`.
+2. Observe the empty state.
+
+**Expected result:**
+- "No skills found yet." heading visible on dark card surface.
+- `.state-message` container has dark background.
+- ScannedReposIndicator is visible (both indicator and empty-state message appear simultaneously,
+  per TC-123 unit coverage and the §8g spec).
+- Search input is disabled and visually muted.
+- No white background patches visible.
+
+---
+
+#### TC-183: Visual — No-results state renders correctly
+**Preconditions:** Populated app with a search query that matches nothing.
+**Level:** Manual (real browser)
+**Automatable now:** Yes, via Playwright (the search filter e2e test already covers this path
+functionally; add a computed-style spot-check if desired).
+
+**Steps:**
+1. Load the app in the populated state.
+2. Type a query that matches nothing (e.g., "zzz-no-match").
+3. Observe the no-results state.
+
+**Expected result:**
+- "No skills match 'zzz-no-match'." visible on dark card surface.
+- `.state-message` container has dark background.
+- Search input remains active (not disabled) and styled for the dark palette.
+
+---
+
+#### TC-184: Visual — Populated state renders correctly; all card elements use dark palette
+**Preconditions:** Populated app (fixture with skill cards).
+**Level:** Manual (real browser)
+**Automatable now:** Partially — TC-160 / TC-162 cover computed-style spot-checks; visual
+completeness is manual.
+
+**Steps:**
+1. Load the app in the populated state.
+2. Observe a skill card.
+
+**Expected result:**
+- Card background is `--surface` (dark, distinct from page background but not high-contrast).
+- Card heading (`<h2>`) is light text (`--text`).
+- Description paragraph is light text.
+- Repo link is accent color (`--accent` cyan `#58a6ff`), visually distinct from body text.
+- Install command (`<code>` block) has dark code-background (`--code-bg`) and cyan-tinted
+  code text (`--code-text`). Monospace font applied.
+- Copy button is a ghost button: transparent background, accent border and text color.
+- No white or near-white background visible in any part of any card.
+- ScannedReposIndicator visible in header (collapsed summary, muted text, right-aligned).
+
+---
+
+### Focus-Ring Verification — Manual / Keyboard
+
+Focus rings are inherently a manual verification — only a real browser renders them, and only
+a keyboard user can trigger `:focus-visible`. These cases require keyboard navigation in a
+real browser.
+
+---
+
+#### TC-190: Focus ring — search input is visible on dark background
+**Level:** Manual (real browser, keyboard navigation)
+**Automatable now:** No — `:focus-visible` rendering cannot be verified in jsdom.
+
+**Steps:**
+1. Load the app.
+2. Tab to the search input (or it will be autofocused on load).
+3. Observe the focus ring.
+
+**Expected result:** A `2px solid #58a6ff` outline is visible around the search input.
+The outline is distinct from the dark page background — the cyan color creates a high-contrast
+ring that is immediately legible. The browser-default focus glow must NOT appear instead of
+(or in addition to) the explicit `outline` rule.
+
+---
+
+#### TC-191: Focus ring — Copy button is visible on dark card surface
+**Level:** Manual (real browser, keyboard navigation)
+**Automatable now:** No.
+
+**Steps:**
+1. Tab to a Copy button inside a skill card.
+2. Observe the focus ring.
+
+**Expected result:** A `2px solid #58a6ff` outline is visible around the Copy button. The
+ring is legible against the `--surface` card background. The ghost button's accent border
+(also `--accent`) and the focus ring are both visible simultaneously — the focus ring is
+offset (`outline-offset: 2px`) and therefore visually distinguishable from the button's own
+border.
+
+---
+
+#### TC-192: Focus ring — repo link (inside skill card) is visible
+**Level:** Manual (real browser, keyboard navigation)
+**Automatable now:** No.
+
+**Steps:**
+1. Tab to a repo link inside a skill card.
+2. Observe the focus ring.
+
+**Expected result:** A `2px solid #58a6ff` outline is visible around the link text, offset
+by 2px, on the dark card surface.
+
+---
+
+#### TC-193: Focus ring — `<summary>` element (repos disclosure) is visible on dark background
+**Level:** Manual (real browser, keyboard navigation)
+**Automatable now:** No.
+
+**Steps:**
+1. Shift+Tab from the search input to reach the `<summary>` element.
+2. Observe the focus ring.
+
+**Expected result:** A `2px solid #58a6ff` outline is visible around the summary text on the
+dark page background. The native `<details>` marker (disclosure triangle) may or may not be
+included in the outline depending on browser implementation — either is acceptable. The ring
+must be clearly visible.
+
+---
+
+#### TC-194: Focus ring — repo links inside expanded disclosure are visible
+**Level:** Manual (real browser, keyboard navigation)
+**Automatable now:** No.
+
+**Steps:**
+1. Open the scanned repos disclosure.
+2. Tab through the repo links inside the list.
+3. Observe the focus ring on each link.
+
+**Expected result:** A `2px solid #58a6ff` outline is visible on each repo link as focus
+moves through the list. Links are on the `--bg` page background (the header does not use
+`--surface`); the ring contrast is 7.22:1 (TC-175 pairing 1).
+
+---
+
+### Responsive Layout — Regression
+
+#### TC-195: No horizontal scrollbar at 320px viewport — dark CSS does not introduce overflow
+**Hypothesis:** TC-144 (the existing e2e regression) already covers no-overflow at 320px.
+This case explicitly re-confirms that the restyle — which adds new `border` declarations,
+potentially a `box-shadow` removal, and new padding/outline rules — does not introduce
+horizontal overflow at the minimum supported viewport width.
+**Preconditions:** Restyle implementation complete; e2e runnable.
+**Level:** e2e (Playwright — TC-144 in `catalog.spec.ts`, re-run unchanged)
+**Automatable now:** Yes — this is a re-run of an existing test.
+**Status:** NOT YET WRITTEN (re-run of TC-144)
+
+**Steps:**
+1. Run `npx playwright test` and confirm TC-144 ("no horizontal overflow at 320px viewport")
+   passes.
+2. Specifically: the test sets viewport to 320px, expands the scanned-repos disclosure, and
+   asserts `document.documentElement.scrollWidth <= document.documentElement.clientWidth`.
+
+**Expected result:** TC-144 passes. If it fails after the restyle, the specific CSS property
+that caused the regression must be identified — the most likely candidates are:
+- An `outline` or `outline-offset` on a full-width element that adds to its rendered width.
+- A new `min-width` on an input or button element.
+- A `border` addition that increases the element's box size if `box-sizing` is not set to
+  `border-box`.
+
+---
+
+## UI-1 Must-Have Coverage
+
+| Requirement (from requirements-ui-styling.md) | TC(s) | Level | Automatable |
+|----------------------------------------------|-------|-------|-------------|
+| Token system established; no raw hex values remain | TC-154 | Shell (grep) | Yes |
+| Dark palette on all surfaces; no white background patches | TC-160, TC-162, TC-180–TC-184 | e2e computed-style + manual | Partially |
+| Cyan/green accent on links, code, copy button | TC-172, TC-173, TC-184 | Contrast tool + manual visual | Manual |
+| All interactive states styled for dark palette | TC-191–TC-194 | Manual keyboard | Manual |
+| All five application states covered | TC-180–TC-184 | Manual visual | Manual |
+| `.repo-scan-failed` meets AA contrast (4.5:1) | TC-161, TC-174 | e2e computed-style + contrast tool | Partially |
+| WCAG AA preserved — primary text | TC-170 | Contrast tool | Manual |
+| WCAG AA preserved — muted text (highest risk) | TC-171 | Contrast tool | Manual |
+| WCAG AA preserved — accent/links | TC-172 | Contrast tool | Manual |
+| WCAG AA preserved — code text | TC-173 | Contrast tool | Manual |
+| Focus rings meet 3:1 non-text contrast (WCAG 2.4.11) | TC-175, TC-190–TC-194 | Contrast tool + manual keyboard | Manual |
+| `.sr-only` and `.visually-hidden` unchanged | TC-155 | git diff | Yes |
+| `role="alert"` container not suppressed by CSS | TC-181 | Manual visual | Manual |
+| No horizontal scroll at 320px | TC-195 / TC-144 regression | e2e (Playwright) | Yes |
+| Existing 90 unit tests pass unchanged | TC-150 | Automated (Vitest) | Yes |
+| Existing 9 e2e tests pass unchanged | TC-151 | Automated (Playwright) | Yes |
+| Build succeeds; CSS artifact present | TC-153 | Automated (build script) | Yes |
+| TypeScript typecheck clean | TC-152 | Automated (tsc) | Yes |
+| Full-page WCAG AA axe audit | TC-176 | Tool-assisted manual | Manual (automatable with axe-playwright) |
+
+---
+
+## UI-1 Automatable vs Manual Summary
+
+**Automatable now (recommend implementing):**
+
+| TC | What it tests | Notes |
+|----|--------------|-------|
+| TC-150 | 90 unit tests pass unchanged | Run `npm run test` — already exists, just re-run |
+| TC-151 | 9 e2e tests pass unchanged | Run `npx playwright test` — already exists, just re-run |
+| TC-152 | TypeScript typecheck clean | Run `npm run typecheck` — already exists |
+| TC-153 | Build succeeds, CSS artifact present | Run `npm run build` — already exists |
+| TC-154 | No raw hex values in CSS | New grep check — trivial to add to CI |
+| TC-155 | `.sr-only` / `.visually-hidden` unchanged | git diff check — trivial |
+| **TC-160** | **body background = dark `rgb(13, 17, 23)`** | **New Playwright test — RECOMMENDED** |
+| **TC-161** | **`span.repo-scan-failed` color is NOT `rgb(153, 153, 153)`** | **New Playwright test — RECOMMENDED** |
+| TC-162 | `.skill-card` background = dark surface | New Playwright test — optional third smoke check |
+| TC-195 | No horizontal overflow at 320px | Re-run of existing TC-144 — already exists |
+
+**Manual / tool-assisted (not unit-automatable without adding an a11y library):**
+
+| TC | What it tests | Method |
+|----|--------------|--------|
+| TC-163 | `::before` terminal prompt does not break `textContent` | e2e regression re-run (if `::before` implemented) |
+| TC-170–TC-176 | WCAG contrast for all pairings | Browser DevTools / axe / contrast checker |
+| TC-180–TC-184 | All five states visual in dark palette | Real browser visual inspection |
+| TC-190–TC-194 | Focus ring visibility on keyboard navigation | Real browser keyboard navigation |
+
+**The 2 new e2e smoke checks I am recommending (TC-160 and TC-161):**
+
+These are the two highest-value additions to the automated suite. They are cheap (3–5 lines of
+Playwright each), permanent regression guards, and they protect against the two most likely
+regressions in a CSS restyle: (1) the dark body background being accidentally absent or
+overridden, and (2) the `.repo-scan-failed` color silently reverting to the old failing value.
+Neither requires a new dependency. Both use `page.evaluate` with `getComputedStyle`, which is
+standard Playwright practice. I recommend the Lead add these to `catalog.spec.ts` alongside
+the SR-1 e2e cases already present there.
+
+TC-162 (card surface color) is a lower-priority third check that is worth adding if the Lead
+is already writing the other two.
+
+---
+
+## UI-1 Regression Risk Summary
+
+| Risk | Likelihood | Impact | Protected by |
+|------|-----------|--------|-------------|
+| Restyle accidentally edits TSX file and breaks a DOM-contract selector | Medium | High (test failures) | TC-150 (unit suite), TC-151 (e2e suite) |
+| `.sr-only` or `.visually-hidden` rule modified | Low | High (a11y regression) | TC-155 (git diff check) |
+| `role="alert"` container hidden by CSS | Low | High (a11y regression) | TC-181 (manual visual) |
+| body background not set (dark cards on white viewport) | High | Medium (visual break) | TC-160 (e2e computed-style — RECOMMENDED) |
+| `.repo-scan-failed` retains old `#999` color (contrast failure) | High | Medium (WCAG AA failure) | TC-161 (e2e computed-style — RECOMMENDED), TC-174 (manual contrast) |
+| Muted text fails WCAG AA on dark surface | High | High (hard requirement) | TC-171 (manual contrast — critical case) |
+| Focus rings invisible on dark backgrounds | Medium | High (WCAG 2.4.11) | TC-175 (contrast), TC-190–TC-194 (keyboard) |
+| New CSS introduces horizontal overflow at 320px | Low | Medium | TC-195 / TC-144 re-run |
+| Raw hex values remain (token migration incomplete) | Low | Low (implementation quality) | TC-154 (grep check) |

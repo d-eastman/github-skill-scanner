@@ -1,7 +1,50 @@
 /**
- * Frontend styles — minimal styling for the skill scanner.
- * Follows project convention of simple, readable code over clever solutions.
+ * Frontend styles — dark-developer visual system.
+ * Design tokens from user-flows.md Section 9 (exact hex values, AA-verified).
+ * All color references use var(--token) — no bare hex outside this :root block.
  */
+
+/* ─── Design Tokens ──────────────────────────────────────────────────────── */
+:root {
+  color-scheme: dark;
+
+  /* Backgrounds */
+  --bg:             #0d1117;   /* page/body background */
+  --surface:        #161b22;   /* card, state-message, input-disabled */
+  --surface-raised: #1c2128;   /* code block — slightly recessed within card */
+
+  /* Text */
+  --text:           #c9d1d9;   /* primary body text */
+  --text-muted:     #8b949e;   /* secondary: last-scanned, summary, placeholder, disabled */
+
+  /* Accent / links */
+  --accent:         #58a6ff;   /* links, copy button border+text, focus ring */
+  --accent-hover:   #79c0ff;   /* link hover, button hover text */
+
+  /* Code */
+  --code-bg:        #1c2128;   /* same as --surface-raised; alias for readability */
+  --code-text:      #a5d6ff;   /* light cyan — marks code as distinct from prose */
+
+  /* Borders */
+  --border:         #30363d;   /* card border, input border, button border */
+  --border-muted:   #21262d;   /* subtle divider, code block border */
+
+  /* States */
+  --danger:         #f85149;   /* error state left-border accent */
+  --focus-ring:     #58a6ff;   /* same as --accent; explicit alias for clarity */
+
+  /* Scan-failed tag */
+  --tag-scan-failed: #848d97;  /* muted gray; passes AA on both --bg and --surface */
+}
+
+/* ─── Base ────────────────────────────────────────────────────────────────── */
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+               sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+}
 
 /* Accessibility: visually hidden but screen-reader visible */
 .sr-only {
@@ -15,6 +58,8 @@
   white-space: nowrap;
   border-width: 0;
 }
+
+/* ─── Layout ──────────────────────────────────────────────────────────────── */
 
 /* Main container */
 main {
@@ -39,9 +84,11 @@ header p {
 
 .last-scanned {
   font-size: 0.875rem;
-  color: #666;
+  color: var(--text-muted);
   margin-top: 0.5rem;
 }
+
+/* ─── Search ──────────────────────────────────────────────────────────────── */
 
 /* Search section */
 section[aria-label="Skill catalog"] {
@@ -53,18 +100,32 @@ input[type="search"] {
   max-width: 600px;
   padding: 0.5rem;
   font-size: 1rem;
-  border: 1px solid #ccc;
+  background-color: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 4px;
   margin-bottom: 1.5rem;
 }
 
+input[type="search"]::placeholder {
+  color: var(--text-muted);
+  opacity: 1; /* Firefox reduces placeholder opacity by default */
+}
+
 input[type="search"]:disabled {
-  background-color: #f5f5f5;
-  color: #999;
+  background-color: var(--surface);
+  color: var(--text-muted);
   cursor: not-allowed;
 }
 
-/* Skill list */
+input[type="search"]:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-color: var(--focus-ring);
+}
+
+/* ─── Skill List ──────────────────────────────────────────────────────────── */
+
 .skill-list {
   list-style: none;
   padding: 0;
@@ -74,12 +135,13 @@ input[type="search"]:disabled {
   gap: 1rem;
 }
 
-/* Skill card */
+/* ─── Skill Card ──────────────────────────────────────────────────────────── */
+
 .skill-card {
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 1rem;
-  background-color: #fafafa;
+  background-color: var(--surface);
 }
 
 .skill-card h2 {
@@ -97,57 +159,90 @@ input[type="search"]:disabled {
 }
 
 .skill-card a {
-  color: #0066cc;
+  color: var(--accent);
   text-decoration: none;
 }
 
 .skill-card a:hover {
+  color: var(--accent-hover);
   text-decoration: underline;
 }
 
 .skill-card a:visited {
-  color: #0066cc;
+  color: var(--accent);
 }
 
-/* Code block (install command) */
+.skill-card a:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ─── Code Block (install command) ───────────────────────────────────────── */
+
 .skill-card code {
   display: block;
-  background-color: #fff;
-  border: 1px solid #ddd;
+  background-color: var(--code-bg);
+  border: 1px solid var(--border-muted);
   border-radius: 4px;
   padding: 0.75rem;
-  font-family: monospace;
-  font-size: 0.9rem;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Monaco,
+               "Courier New", monospace;
+  font-size: 0.875rem;
+  color: var(--code-text);
   overflow-x: auto;
   margin-bottom: 1rem;
   word-break: break-all;
 }
 
-/* Copy button */
+/* Terminal prompt decoration — CSS pseudo-element only; does NOT affect textContent */
+.skill-card code::before {
+  content: "$ ";
+  color: var(--text-muted);
+  user-select: none;
+}
+
+/* ─── Copy Button ─────────────────────────────────────────────────────────── */
+
 .skill-card button {
   padding: 0.5rem 1rem;
   font-size: 0.95rem;
-  border: 1px solid #ccc;
+  background-color: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
   border-radius: 4px;
-  background-color: #f0f0f0;
   cursor: pointer;
 }
 
 .skill-card button:hover {
-  background-color: #e0e0e0;
+  background-color: rgba(88, 166, 255, 0.1);
+  color: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .skill-card button:active {
-  background-color: #d0d0d0;
+  background-color: rgba(88, 166, 255, 0.2);
+  color: var(--accent-hover);
 }
 
-/* State messages */
+.skill-card button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ─── State Messages ──────────────────────────────────────────────────────── */
+
 .state-message {
   padding: 1rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background-color: #fafafa;
+  background-color: var(--surface);
   margin-top: 1rem;
+}
+
+/* Error state — left-border accent distinguishes it from empty/no-results */
+div[role="alert"].state-message {
+  border-left: 3px solid var(--danger);
 }
 
 .state-message h2 {
@@ -160,34 +255,28 @@ input[type="search"]:disabled {
   font-size: 0.95rem;
 }
 
-/* Visually hidden indicator for external links — hidden visually but read by screen readers */
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
-}
+/* ─── Scanned Repos Indicator ─────────────────────────────────────────────── */
 
-/* Scanned repos indicator — matches .last-scanned weight */
 .scanned-repos {
   font-size: 0.875rem;
-  color: #666;
+  color: var(--text-muted);
   margin-top: 0.25rem;
 }
 
 .scanned-repos summary {
   cursor: pointer;
   list-style: revert;
-  color: #666;
+  color: var(--text-muted);
 }
 
 .scanned-repos summary:hover {
-  color: #444;
+  color: var(--text);
+}
+
+.scanned-repos summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .scanned-repos-list {
@@ -203,18 +292,38 @@ input[type="search"]:disabled {
 }
 
 .scanned-repos-list a {
-  color: #0066cc;
+  color: var(--accent);
   text-decoration: none;
   font-size: 0.875rem;
 }
 
 .scanned-repos-list a:hover {
+  color: var(--accent-hover);
   text-decoration: underline;
+}
+
+.scanned-repos-list a:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* "scan failed" tag — muted, informational, not alarming */
 .repo-scan-failed {
   font-size: 0.8rem;
-  color: #999;
+  color: var(--tag-scan-failed);
   margin-left: 0.5rem;
+}
+
+/* Visually hidden indicator for external links — hidden visually but read by screen readers */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }

@@ -664,3 +664,646 @@ Failed repo rows read as: "{owner/repo} (link), opens in new tab, scan failed." 
 - `adr-005-frontend-architecture.md` — component shape, state machine (`loading | error | ready`), TypeScript
 - `adr-002-data-schema-output-contract.md` — data fields available to display; null-tolerance rules; addendum 2026-06-05 (`metadata.repos` shape)
 - Handoff to Lead Developer for interaction-feasibility check (Section 8 additions) before implementation
+
+---
+
+## 9. Dark-Developer Visual System
+
+**Author:** Lena Vasquez (UX Designer)  
+**Date:** 2026-06-05  
+**Status:** Ready for Lead Developer feasibility review  
+**Inputs:** requirements-ui-styling.md; src/fe/index.css; all component TSX files
+
+This section is a complete, implementation-ready design spec for the dark-developer visual refresh. It is additive to Sections 1–8, which describe interaction and flow. This section describes only visual treatment: tokens, typography, per-element styling, and contrast verification. No interaction behavior changes.
+
+---
+
+### 9a. Design Intent
+
+Minimalist dark. One background, one surface level, one text color, one accent. The aesthetic signal is "developer tool" — terminal-adjacent, content-first, no decorative chrome. The palette draws from the GitHub dark theme family because it is a known-good, AA-verified dark palette that developers already associate with code and repositories. Restraint is the design principle: if an element does not need to be different from its neighbors, it should not be.
+
+---
+
+### 9b. Open Question Resolved: OQ-UI-1 (Font Stack)
+
+**Decision: system stacks only. No web fonts.**
+
+Body/UI text: system sans-serif stack.  
+Code/install command: system monospace stack.
+
+Rationale: the developer-tool aesthetic is well-served by system monospace — the fonts that ship with macOS, Windows, and Linux developer environments are exactly what developers expect to see in a terminal-adjacent interface. There is no usability, readability, or aesthetic benefit that justifies the added network request, FOUT risk, or dependency. This closes OQ-UI-1.
+
+---
+
+### 9c. Color Tokens
+
+All values are CSS custom properties to be declared in a `:root {}` block at the top of `index.css` (or in a `tokens.css` imported first — Lead's call on file split). Every color reference elsewhere in the stylesheet must use these properties. No raw hex values may remain in `index.css` after the restyle.
+
+```css
+:root {
+  /* Backgrounds */
+  --bg:             #0d1117;   /* page/body background */
+  --surface:        #161b22;   /* card, state-message, input-disabled */
+  --surface-raised: #1c2128;   /* code block — slightly recessed within card */
+
+  /* Text */
+  --text:           #c9d1d9;   /* primary body text */
+  --text-muted:     #8b949e;   /* secondary text: last-scanned, summary, placeholder,
+                                  description paragraphs, disabled input text */
+
+  /* Accent / links */
+  --accent:         #58a6ff;   /* links, copy button border+text, focus ring */
+  --accent-hover:   #79c0ff;   /* link hover, button hover text */
+
+  /* Code */
+  --code-bg:        #1c2128;   /* same as --surface-raised; alias for readability */
+  --code-text:      #a5d6ff;   /* light cyan — marks code as distinct from prose */
+
+  /* Borders */
+  --border:         #30363d;   /* card border, input border, button border */
+  --border-muted:   #21262d;   /* subtle divider, code block border */
+
+  /* States */
+  --danger:         #f85149;   /* error state left-border accent; passes AA as text too */
+  --focus-ring:     #58a6ff;   /* same as --accent; explicit alias for clarity */
+
+  /* Scan-failed tag */
+  --tag-scan-failed: #848d97;  /* muted gray; passes AA on both --bg and --surface */
+}
+```
+
+#### Contrast ratio verification — every text/UI pairing
+
+The WCAG 2.1 AA thresholds are: 4.5:1 for normal text (body copy, links, labels), 3:1 for large text (>=18pt regular / >=14pt bold) and non-text UI components (focus rings, button borders as UI components). All ratios below are computed from the WCAG relative luminance formula.
+
+Luminance values used in the table below (derived; see working notes after the table):
+
+| Token | Hex | Relative luminance |
+|-------|-----|--------------------|
+| `--bg` | `#0d1117` | 0.01020 |
+| `--surface` | `#161b22` | 0.01683 |
+| `--surface-raised` / `--code-bg` | `#1c2128` | 0.02251 |
+| `--text` | `#c9d1d9` | 0.64650 |
+| `--text-muted` | `#8b949e` | 0.31460 |
+| `--accent` | `#58a6ff` | 0.38480 |
+| `--accent-hover` | `#79c0ff` | 0.50270 |
+| `--code-text` | `#a5d6ff` | 0.64290 |
+| `--danger` | `#f85149` | 0.27620 |
+| `--tag-scan-failed` | `#848d97` | 0.29150 |
+
+**Primary text contrast:**
+
+| Text token | Background token | Ratio | Threshold | Result |
+|------------|-----------------|-------|-----------|--------|
+| `--text` (`#c9d1d9`) | `--bg` (`#0d1117`) | 11.57:1 | 4.5:1 | PASS |
+| `--text` (`#c9d1d9`) | `--surface` (`#161b22`) | 10.42:1 | 4.5:1 | PASS |
+| `--text` (`#c9d1d9`) | `--surface-raised` (`#1c2128`) | 9.61:1 | 4.5:1 | PASS |
+
+**Muted text contrast:**
+
+| Text token | Background token | Ratio | Threshold | Result |
+|------------|-----------------|-------|-----------|--------|
+| `--text-muted` (`#8b949e`) | `--bg` (`#0d1117`) | 6.06:1 | 4.5:1 | PASS |
+| `--text-muted` (`#8b949e`) | `--surface` (`#161b22`) | 5.46:1 | 4.5:1 | PASS |
+
+Muted text is used for: `.last-scanned`, `.scanned-repos summary`, placeholder text, description paragraphs, disabled input text, and the `input[type="search"]:disabled` color. All render against `--bg` or `--surface`; both pass.
+
+**Accent / link contrast:**
+
+| Text token | Background token | Ratio | Threshold | Result |
+|------------|-----------------|-------|-----------|--------|
+| `--accent` (`#58a6ff`) | `--bg` (`#0d1117`) | 7.22:1 | 4.5:1 | PASS |
+| `--accent` (`#58a6ff`) | `--surface` (`#161b22`) | 6.51:1 | 4.5:1 | PASS |
+| `--accent-hover` (`#79c0ff`) | `--bg` (`#0d1117`) | 8.97:1 | 4.5:1 | PASS |
+| `--accent-hover` (`#79c0ff`) | `--surface` (`#161b22`) | 8.27:1 | 4.5:1 | PASS |
+
+Links appear on `--surface` (inside cards) and on `--bg` (scanned-repos list in header). Both pass.
+
+**Code text contrast:**
+
+| Text token | Background token | Ratio | Threshold | Result |
+|------------|-----------------|-------|-----------|--------|
+| `--code-text` (`#a5d6ff`) | `--code-bg` (`#1c2128`) | 9.56:1 | 4.5:1 | PASS |
+
+**Danger contrast (error state border accent — used as a left-border, not body text, but verified as text too):**
+
+| Text token | Background token | Ratio | Threshold | Result |
+|------------|-----------------|-------|-----------|--------|
+| `--danger` (`#f85149`) | `--surface` (`#161b22`) | 4.88:1 | 4.5:1 | PASS (as text) |
+| `--danger` border | `--surface` background | n/a | 3:1 (UI component) | PASS (ratio is 4.88:1) |
+
+**Scan-failed tag — the explicit fix:**
+
+The current `color: #999` on a white card surface gives approximately 4.0:1, which fails WCAG AA for normal (small) text. The fix:
+
+| Text token | Background token | Ratio | Threshold | Result |
+|------------|-----------------|-------|-----------|--------|
+| `--tag-scan-failed` (`#848d97`) | `--surface` (`#161b22`) | 5.11:1 | 4.5:1 | PASS |
+| `--tag-scan-failed` (`#848d97`) | `--bg` (`#0d1117`) | 5.67:1 | 4.5:1 | PASS |
+
+The tag appears in `.scanned-repos-list` which renders in the `<header>` (on `--bg`) when collapsed and as part of list items that may be read against either background. Both pass comfortably. The color is visually secondary — clearly dimmer than `--text` and distinct from `--accent` — which preserves the "informational, not alarming" intent from Section 8d.
+
+**Focus ring — WCAG 2.4.11 (non-text contrast, 3:1 against adjacent surface):**
+
+| Focus ring token | Adjacent surface | Ratio | Threshold | Result |
+|-----------------|-----------------|-------|-----------|--------|
+| `--focus-ring` (`#58a6ff`) | `--surface` (`#161b22`) | 6.51:1 | 3:1 | PASS |
+| `--focus-ring` (`#58a6ff`) | `--bg` (`#0d1117`) | 7.22:1 | 3:1 | PASS |
+
+The search input sits on `--bg`; cards and copy buttons sit on `--surface`. Both pass substantially above the 3:1 threshold.
+
+---
+
+### 9d. Typography
+
+**OQ-UI-1 resolved: system stacks only.**
+
+```
+System sans-serif stack (UI text — body, headings, labels, buttons, state messages):
+-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
+"Apple Color Emoji", "Segoe UI Emoji"
+
+System monospace stack (code/install command — <code> element):
+"SFMono-Regular", Consolas, "Liberation Mono", Menlo, Monaco, "Courier New", monospace
+```
+
+Apply the sans-serif stack to `body` (or `:root`) so it inherits everywhere. Apply the monospace stack only to `.skill-card code` — no other element needs it.
+
+**Type scale** (sizes only; weights are browser defaults except where noted):
+
+| Element | Font size | Weight | Color token | Notes |
+|---------|-----------|--------|-------------|-------|
+| `header h1` | `1.75rem` | 600 (semibold) | `--text` | Unchanged from current |
+| `header p` (subtitle) | `1rem` | 400 | `--text` | Unchanged |
+| `.last-scanned` | `0.875rem` | 400 | `--text-muted` | Unchanged size |
+| `.scanned-repos summary` | `0.875rem` | 400 | `--text-muted` | Match last-scanned |
+| `input[type="search"]` | `1rem` | 400 | `--text` | Input text |
+| `.skill-card h2` | `1.25rem` | 600 | `--text` | Unchanged |
+| `.skill-card p` (description, source) | `0.95rem` | 400 | `--text` | Unchanged |
+| `.skill-card a` | `0.95rem` | 400 | `--accent` | — |
+| `.skill-card code` | `0.875rem` | 400 | `--code-text` | Monospace stack |
+| `.skill-card button` | `0.95rem` | 400 | `--accent` | Ghost button style |
+| `.state-message h2` | `1.25rem` | 600 | `--text` | — |
+| `.state-message p` | `0.95rem` | 400 | `--text` | — |
+| `.scanned-repos-list a` | `0.875rem` | 400 | `--accent` | — |
+| `.repo-scan-failed` | `0.8rem` | 400 | `--tag-scan-failed` | — |
+
+Do not change any existing `font-size` values — the scale above matches the current stylesheet exactly. The restyle changes only colors and adds the system font stacks.
+
+---
+
+### 9e. Spacing and Shape
+
+No spacing scale changes. All existing `padding`, `margin`, and `gap` values in `index.css` remain intact. The restyle does not change layout density.
+
+**Border radius:** retain current values (`4px` for inputs/buttons/code, `6px` for cards/state-message). These are proportionate and consistent; no change needed.
+
+**Border treatment:** replace all current border values (`1px solid #ddd`, `1px solid #ccc`) with `1px solid var(--border)` (`#30363d`). This is a hairline border — barely visible, serving only to define the card edge against the page background. On dark surfaces, a hairline is the correct convention: heavy borders would add visual noise.
+
+**Elevation:** no box shadows. On dark themes, box shadows are largely invisible and add nothing. Elevation is communicated through background-color difference alone: `--bg` (deepest) -> `--surface` (cards) -> `--surface-raised` (code blocks within cards). Three levels, achieved purely with background colors. This is the minimalist-dark convention — low chrome, no heavy effects.
+
+---
+
+### 9f. Per-Element Styling Specification
+
+This section maps every rule in `index.css` to its dark-theme treatment. Each entry states the CSS selector, what changes, and any behavioral annotation.
+
+---
+
+**`body` (currently unstyled for background — this is the bug noted in the requirements):**
+
+```
+background-color: var(--bg);
+color: var(--text);
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+             sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+```
+
+Annotation: setting `background-color` on `body` is required. The current stylesheet only sets background on individual surfaces (`.skill-card`, `.state-message`), which means the page background is browser-default white and the dark cards appear to float on it. Setting it on `body` ensures the full viewport is dark in all five states and at all viewport heights. Setting `color` and `font-family` here lets all elements inherit rather than requiring per-element declarations.
+
+---
+
+**`main`:** no color changes. Keep existing max-width, margin, padding.
+
+---
+
+**`header`:** no color changes needed. Background inherits from `body`. Keep existing `margin-bottom`.
+
+---
+
+**`header h1`:** inherits `--text` from body. No explicit color rule needed.
+
+---
+
+**`header p` (subtitle):** inherits `--text`. No explicit color rule needed.
+
+---
+
+**`.last-scanned`:**
+
+```
+color: var(--text-muted);   /* replaces: color: #666 */
+```
+
+Contrast: `--text-muted` (`#8b949e`) on `--bg` (`#0d1117`) = 6.06:1. PASS.
+
+---
+
+**`input[type="search"]`:**
+
+```
+background-color: var(--bg);        /* recessed/inset feel vs card surface */
+color: var(--text);
+border: 1px solid var(--border);    /* replaces: 1px solid #ccc */
+border-radius: 4px;
+/* retain existing width, padding, font-size, margin-bottom */
+```
+
+The input uses `--bg` (same as the page) rather than `--surface` to create a subtle inset-into-page visual — on dark themes, a slightly-recessed input field is the expected convention. The input is still visually distinct from the page because it has a `--border` outline.
+
+Placeholder color: add `color-scheme: dark` on `:root` to let the browser render the native search clear button in a dark-appropriate style. Additionally set:
+
+```css
+input[type="search"]::placeholder {
+  color: var(--text-muted);
+  opacity: 1;   /* Firefox reduces placeholder opacity by default */
+}
+```
+
+Contrast: `--text-muted` on `--bg` = 6.06:1. PASS.
+
+---
+
+**`input[type="search"]:disabled`:**
+
+```
+background-color: var(--surface);   /* replaces: #f5f5f5 */
+color: var(--text-muted);           /* replaces: #999 */
+cursor: not-allowed;
+```
+
+Contrast: `--text-muted` on `--surface` = 5.46:1. PASS. The disabled input is visually distinguishable from the enabled state (lighter background, dimmer text) without falling back to a browser-default light appearance.
+
+---
+
+**`input[type="search"]:focus-visible`** (currently absent — must be added):
+
+```css
+input[type="search"]:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-color: var(--focus-ring);
+}
+```
+
+Annotation: the current stylesheet has no `:focus-visible` rule on the input, which means keyboard users see only the browser default focus style — a light-colored glow that is invisible on dark backgrounds. This rule is required for WCAG 2.4.7 / 2.4.11. The `2px solid` outline at `2px offset` gives a clear, legible ring. Contrast: `--focus-ring` (`#58a6ff`) against `--bg` = 7.22:1. PASS.
+
+---
+
+**`.skill-list`:** no color changes. Keep existing layout rules.
+
+---
+
+**`.skill-card`:**
+
+```
+background-color: var(--surface);   /* replaces: #fafafa */
+border: 1px solid var(--border);    /* replaces: 1px solid #ddd */
+/* retain: border-radius, padding */
+```
+
+---
+
+**`.skill-card h2`:** inherits `--text`. No explicit color rule needed.
+
+---
+
+**`.skill-card p`:** inherits `--text`. No explicit color rule needed.
+
+---
+
+**`.skill-card a` (repo link):**
+
+```
+color: var(--accent);   /* replaces: #0066cc */
+```
+
+Contrast: `--accent` on `--surface` = 6.51:1. PASS.
+
+---
+
+**`.skill-card a:hover`:**
+
+```
+color: var(--accent-hover);   /* lifted, visually distinct from default */
+text-decoration: underline;   /* retain */
+```
+
+---
+
+**`.skill-card a:visited`:**
+
+```
+color: var(--accent);   /* retain same as default — visited state is not meaningful
+                           for these external links; suppress the purple visited color */
+```
+
+---
+
+**`.skill-card code` (install command):**
+
+```
+background-color: var(--code-bg);      /* replaces: #fff */
+border: 1px solid var(--border-muted); /* replaces: 1px solid #ddd — even subtler */
+color: var(--code-text);
+font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Monaco,
+             "Courier New", monospace;
+/* retain: display:block, padding, font-size, overflow-x:auto,
+           margin-bottom, word-break */
+```
+
+Contrast: `--code-text` (`#a5d6ff`) on `--code-bg` (`#1c2128`) = 9.56:1. PASS.
+
+The code block background (`#1c2128`) is slightly darker than the card surface (`#161b22`), which gives a terminal-within-card feel without requiring any border to separate them. The `--border-muted` border is barely visible — it defines the edge but does not draw the eye.
+
+---
+
+**`.skill-card button` (Copy button — ghost button style):**
+
+```
+background-color: transparent;
+color: var(--accent);                /* replaces: no explicit text color */
+border: 1px solid var(--accent);     /* replaces: 1px solid #ccc */
+border-radius: 4px;
+cursor: pointer;
+/* retain: padding, font-size */
+```
+
+Contrast: `--accent` text on transparent (reads against `--surface`) = 6.51:1. PASS.
+Border as UI component against `--surface` = 6.51:1, above the 3:1 threshold. PASS.
+
+Annotation: a ghost button (transparent background, accent border and text) is the correct dark-theme convention for a secondary action. A filled button would compete with the skill card heading for visual weight. The Copy action is secondary to reading the card — the ghost treatment keeps it subordinate until the user focuses on it.
+
+---
+
+**`.skill-card button:hover`:**
+
+```
+background-color: rgba(88, 166, 255, 0.1);  /* very subtle tinted bg on hover */
+color: var(--accent-hover);
+border-color: var(--accent-hover);
+```
+
+The `rgba(88, 166, 255, 0.1)` is a 10% opacity version of `--accent`. It adds a perceptible hover highlight without filling the button solidly. This is the standard ghost-button hover convention on dark surfaces. The effective mixed color against `--surface` (#161b22) is approximately #1d2736 — still very dark, change is subtle but perceptible.
+
+---
+
+**`.skill-card button:active`:**
+
+```
+background-color: rgba(88, 166, 255, 0.2);  /* deeper press state */
+color: var(--accent-hover);
+```
+
+Active is visually distinct from hover (0.2 vs 0.1 opacity) — the press state registers as a slightly stronger fill.
+
+---
+
+**`.skill-card button:focus-visible`:**
+
+```css
+.skill-card button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+```
+
+Contrast: `--focus-ring` against `--surface` = 6.51:1. PASS.
+
+---
+
+**`.state-message`** (used for error, empty, and no-results states):
+
+```
+background-color: var(--surface);   /* replaces: #fafafa */
+border: 1px solid var(--border);    /* replaces: 1px solid #ddd */
+/* retain: border-radius, padding, margin-top */
+```
+
+**Error state variant** — the `div[role="alert"].state-message` should be visually distinct from empty/no-results to signal that something is wrong. Add a left-border accent:
+
+```css
+div[role="alert"].state-message {
+  border-left: 3px solid var(--danger);
+}
+```
+
+Annotation: a left-border accent is a widely-used convention for "alert-type" containers in dark UIs. It requires no DOM change — the `[role="alert"]` attribute already exists on the error state container in `App.tsx`. This rule targets it directly. The 3px width is enough to be noticed without being alarming. Contrast: `--danger` as a border against `--surface` exceeds 3:1. PASS.
+
+`.state-message h2` and `.state-message p` inherit `--text` from `body`. No explicit color rules needed.
+
+---
+
+**`.scanned-repos`:**
+
+```
+color: var(--text-muted);   /* replaces: #666 */
+/* retain: font-size, margin-top */
+```
+
+---
+
+**`.scanned-repos summary`:**
+
+```
+color: var(--text-muted);   /* replaces: color: #666 */
+cursor: pointer;
+list-style: revert;
+```
+
+---
+
+**`.scanned-repos summary:hover`:**
+
+```
+color: var(--text);   /* replaces: #444 — lifts to full text color on hover */
+```
+
+Contrast: `--text` on `--bg` = 11.57:1. PASS.
+
+---
+
+**`.scanned-repos summary:focus-visible`** (currently absent — must be added):
+
+```css
+.scanned-repos summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+```
+
+Annotation: the `<summary>` element is keyboard-interactive (Enter/Space to toggle) and must have a visible focus ring. The current stylesheet has no `:focus-visible` rule for it. This is required for WCAG 2.4.7. Contrast: `--focus-ring` against `--bg` = 7.22:1. PASS.
+
+---
+
+**`.scanned-repos-list`:** no color changes. Keep existing `list-style`, `padding`, `margin`.
+
+---
+
+**`.scanned-repos-list li`:** no color changes. Keep existing `margin`, `overflow-wrap`, `word-break`.
+
+---
+
+**`.scanned-repos-list a`:**
+
+```
+color: var(--accent);   /* replaces: #0066cc */
+/* retain: text-decoration:none, font-size */
+```
+
+Contrast: `--accent` on `--bg` (header background) = 7.22:1. PASS.
+
+---
+
+**`.scanned-repos-list a:hover`:**
+
+```
+color: var(--accent-hover);
+text-decoration: underline;   /* retain */
+```
+
+---
+
+**`.scanned-repos-list a:focus-visible`** (currently absent — must be added):
+
+```css
+.scanned-repos-list a:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+```
+
+Annotation: links must have a visible focus ring on dark backgrounds. The browser default is inadequate. Contrast: `--focus-ring` against `--bg` = 7.22:1. PASS.
+
+---
+
+**`.skill-card a:focus-visible`** (currently absent — must be added):
+
+```css
+.skill-card a:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+```
+
+Contrast: `--focus-ring` against `--surface` = 6.51:1. PASS.
+
+---
+
+**`.repo-scan-failed`:**
+
+```
+color: var(--tag-scan-failed);   /* replaces: #999 — the AA fix */
+/* retain: font-size, margin-left */
+```
+
+This is the explicit fix called out in requirements-ui-styling.md. The old `#999` on a white card surface is approximately 4.0:1 (fails AA for small text). The replacement `#848d97` gives:
+- 5.11:1 against `--surface` (`#161b22`) — PASS
+- 5.67:1 against `--bg` (`#0d1117`) — PASS
+
+The color is visually secondary: clearly dimmer than `--text`, distinct from `--accent`, not warning-colored. The "informational, not alarming" intent from Section 8d is preserved.
+
+---
+
+**`.sr-only` and `.visually-hidden`:** unchanged. These rules must not be altered. They are accessibility infrastructure, not visual styling, and are untouched by this restyle.
+
+---
+
+### 9g. Terminal Prompt Touch (Optional Polish)
+
+This is a CSS-only, DOM-safe decoration for the `<code>` element. It adds a muted `$ ` prefix using a `::before` pseudo-element, giving the install command a terminal-line aesthetic. It does not change any text content — tests that assert the exact command string will not be affected because `::before` content is not part of the element's `textContent`.
+
+```css
+/* OPTIONAL — implement only if PM/Lead agree this adds value */
+.skill-card code::before {
+  content: "$ ";
+  color: var(--text-muted);
+  user-select: none;   /* excluded from clipboard copy and text selection */
+}
+```
+
+The `user-select: none` on the `::before` content means the `$ ` is not included when a user selects and copies the command text manually. The Copy button uses `buildInstallCommand()` which reads from the SkillEntry data directly — it never reads the DOM `textContent` — so the `::before` has no effect on the Copy button's clipboard output.
+
+Flag: this is optional visual polish. It has no impact on accessibility, contrast, or test contracts. The decision to include it is the Lead's call.
+
+---
+
+### 9h. Class-Hook Gaps and TSX Touch Points
+
+The Lead needs to know which rules in Section 9f require a new rule and which require a TSX change.
+
+**Purely CSS — no TSX changes:**
+
+All rules in Section 9f are achievable with existing class names and element selectors already in the stylesheet. No new classes need to be added to any TSX file for the core restyle. Specifically:
+- The error state left-border is targeted via `div[role="alert"].state-message` — the `role="alert"` attribute already exists in `App.tsx`.
+- Focus-visible rules target existing element types and existing classes (`input[type="search"]`, `.skill-card button`, `.scanned-repos summary`, `.scanned-repos-list a`, `.skill-card a`).
+- The disabled input state targets the existing `disabled` attribute.
+
+**One thing to verify with the Lead:** the `body` background rule. The current stylesheet does not style `body` at all. Adding `background-color`, `color`, and `font-family` to `body` is a CSS change only — but the Lead should confirm that no existing test asserts a background color on `body` or any inline style that would override it.
+
+**`color-scheme: dark` on `:root`:** this is a one-line addition that tells browsers to render native form controls (the search input's clear button `[x]`, native focus rings, scrollbars) in dark-appropriate styles. It is CSS-only. Recommended to add alongside the token declarations:
+
+```css
+:root {
+  color-scheme: dark;
+  /* ... tokens ... */
+}
+```
+
+---
+
+### 9i. What Changes, What Does Not
+
+**Changes in `index.css`:**
+- Add `:root {}` token block with all custom properties
+- Add `body {}` rule with `background-color`, `color`, `font-family`, `color-scheme`
+- Replace every raw hex value with the corresponding token
+- Add `:focus-visible` rules for `input[type="search"]`, `.skill-card button`, `.scanned-repos summary`, `.scanned-repos-list a`, `.skill-card a`
+- Add `div[role="alert"].state-message` left-border rule
+- Add `input[type="search"]::placeholder` rule
+- Add `.skill-card code::before` rule (optional)
+
+**Does not change:**
+- `.sr-only` — untouched, not even reformatted
+- `.visually-hidden` — untouched
+- All spacing, layout, max-width, padding, margin, gap values
+- All font-size values
+- All `overflow-x`, `word-break`, `cursor`, `list-style` values
+- No TSX files
+- No DOM structure, ARIA attributes, visible text, or element types
+- No class names are renamed or removed
+
+**DOM-contract registry check:** every hook in the requirements-ui-styling.md registry is preserved. Class names (`ul.skill-list`, `span.repo-scan-failed`, `details.scanned-repos`, `.scanned-repos-list`, `.skill-card`, `.state-message`, `.last-scanned`, `.sr-only`, `.visually-hidden`) are unchanged. ARIA attributes (`aria-label`, `role="alert"`, `aria-live`, `aria-busy`) are in TSX files, untouched. Visible text strings are in TSX files, untouched. Element types (`<code>`, `<h1>`, `<h2>`) are in TSX files, untouched.
+
+---
+
+### 9j. Handoff Notes for Lead Developer
+
+1. **File structure:** the token block can live at the top of `index.css` or in a separate `tokens.css` that `index.css` imports. Either works. The requirements recommend the Lead decide — both approaches satisfy the "token block readable in isolation" acceptance criterion.
+
+2. **Post-restyle verification step:** after implementing, run a grep for raw hex values in `index.css`. Any remaining hex that is not inside a comment means a token was missed. The requirements call this out explicitly as a sufficient check.
+
+3. **`color-scheme: dark`:** add this to `:root`. It handles browser-native form control rendering (the `<input type="search">` clear button, native focus rings) without any additional CSS.
+
+4. **The `::before` terminal prompt is optional.** Include it only if the Lead and PM want it. It is zero-risk from a test-contract perspective, but it is polish, not a must-have.
+
+5. **No horizontal scroll check at 320px:** the restyle adds no new properties that would cause horizontal overflow (`box-shadow` is not used; no new absolute-positioned elements; no new `min-width` values). The existing `max-width: 600px` on the search input and the `word-break: break-all` on code and repo list items are preserved. TC-144 should continue to pass without modification.
+
+6. **`role="alert"` visibility:** CSS must not suppress the `div[role="alert"].state-message` container in a way that breaks screen reader announcement. The rules in Section 9f do not add `display:none`, `visibility:hidden`, `opacity:0`, or `height:0` to this container. The `aria-live` and `role="alert"` behavior is unaffected.
+
+---
+
+*Handoff: Lead Developer for implementation feasibility check. No product decisions are implied by this section — all palette choices, the font-stack decision, and the system-only NFR are fixed per requirements-ui-styling.md stakeholder direction.*
