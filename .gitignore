@@ -1,0 +1,22 @@
+node_modules/
+dist/
+dist-scan/
+
+# Scanner copies data here at build time; don't commit the copy
+src/fe/public/data/
+
+# Environment / secrets — never commit
+.env
+.env.*
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Test coverage
+coverage/

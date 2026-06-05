@@ -1,0 +1,52 @@
+# Dev Team Artifacts
+
+This directory is the **single home for everything the AI dev team produces**. Personas write
+their deliverables here and hand off to each other *by path* — so keeping this organized is what
+makes the handoffs work. This file is the index; each persona updates it with a one-line pointer
+when it produces something.
+
+> Seeded by the software-dev-team toolkit. The table below is empty until the personas start
+> producing artifacts in this project.
+
+**New here?** See the worked example in [`examples/csv-export/`](examples/) — a complete
+requirements → ADR → test plan → bug report chain for one small feature, showing what filled-in
+artifacts look like and how the personas hand off.
+
+## Naming conventions
+
+| Artifact | Path | Produced by |
+|----------|------|-------------|
+| Requirements Document | `requirements.md` (or `requirements-<feature>.md` for a delta) | `/ba` |
+| Architecture Decision Record | `adr-NNN-<short-title>.md` (zero-padded, never renumbered) | `/architect` |
+| Success Metrics / Instrumentation | `success-metrics.md`, `instrumentation.md` | `/data` |
+| Phase Plan / Backlog / Scope Log | `phase-plan.md`, `backlog.md`, `scope-decision-log.md` | `/pm` |
+| User Flows | `user-flows.md` | `/ux` |
+| Technical Spec | `tech-spec.md` | `/lead` |
+| Tech Debt Register | `tech-debt.md` | `/lead` |
+| Test Plan | `test-plan.md` | `/qa` |
+| Bug Reports | `bug-reports/BUG-NNN.md` | `/qa` |
+| Deployment Runbook | `deployment-runbook.md` | `/devops` |
+| Security Review | `security-review.md` | `/security` |
+
+## Index
+
+*Personas: add a one-line pointer here when you create or significantly update an artifact.*
+
+| Date | Artifact | Status | Summary |
+|------|----------|--------|---------|
+| 2026-06-04 | [`requirements.md`](requirements.md) | Approved | Full requirements for GitHub Skill Scanner v1 — scanner, data pipeline, and frontend |
+| 2026-06-04 | [`adr-001-scanner-discovery-strategy.md`](adr-001-scanner-discovery-strategy.md) | Proposed | Discover SKILL.md via recursive Git Trees API; fixed layouts L1–L3 (root, `<skill>/`, `skills/<skill>/`) — resolves OQ-6 |
+| 2026-06-04 | [`adr-002-data-schema-output-contract.md`](adr-002-data-schema-output-contract.md) | Proposed | Single `data/skills.json` envelope (`{metadata, skills}`) as the scanner↔frontend contract |
+| 2026-06-04 | [`adr-003-data-serving-on-github-pages.md`](adr-003-data-serving-on-github-pages.md) | Proposed | Copy `data/` into Vite `public/`, fetch via `import.meta.env.BASE_URL` — resolves OQ-5 |
+| 2026-06-04 | [`adr-004-cicd-pipeline-shape.md`](adr-004-cicd-pipeline-shape.md) | Proposed | Two workflows: scheduled scanner commits `data/` (PAT push triggers deploy); Pages deploy on data/code change |
+| 2026-06-04 | [`adr-005-frontend-architecture.md`](adr-005-frontend-architecture.md) | Accepted | Single-page TypeScript React, local hook state, no router; TypeScript confirmed by stakeholder (amended) |
+| 2026-06-04 | [`success-metrics.md`](success-metrics.md) | Draft | v1 success definition, Tier A health metrics (free, from metadata envelope + Actions), Tier B usage metrics (deferred), instrumentation asks, guardrails |
+| 2026-06-04 | [`backlog.md`](backlog.md) | Active | Prioritized v1 backlog — 6 epics, 20 stories, MoSCoW tagged, mapped to must-haves and ADRs |
+| 2026-06-04 | [`phase-plan.md`](phase-plan.md) | Active | 5-day phase plan with day-by-day sequence, critical path, 4 gates, cut line, and go/no-go criteria |
+| 2026-06-04 | [`scope-decision-log.md`](scope-decision-log.md) | Active — updated at go/no-go | 21 scope decisions: 12 original + 3 confirmed cuts (E6-S3, N1, N2) + 2 security pulls (SEC-001/002) + 3 security deferrals (SEC-003/005, BUG-001) + go/no-go decision |
+| 2026-06-04 | [`user-flows.md`](user-flows.md) | Ready for Lead review | Single-screen catalog: primary flow, annotated wireframe, all 5 states with microcopy, accessibility notes, heuristic check |
+| 2026-06-04 | [`deployment-runbook.md`](deployment-runbook.md) | Active | One-time setup (PAT + Pages enable), scan-to-deploy trigger chain, manual run instructions, incident runbook (5 failure modes), observability |
+| 2026-06-04 | [`tech-debt.md`](tech-debt.md) | Active | 9 items: TD-001 through TD-009; TD-007/008/009 added post-security review |
+| 2026-06-04 | [`test-plan.md`](test-plan.md) | Complete | v1 full test plan — 83 test cases covering all 9 must-haves, 5 UI states, ADR-002 contract, a11y; 61 automated tests run and passed (58 + 3 SEC-001 regression tests); 1 bug filed |
+| 2026-06-04 | [`bug-reports/BUG-001.md`](bug-reports/BUG-001.md) | Open (Backlog) | Low: aria-busy missing on list container during loading (TD-007) |
+| 2026-06-04 | [`go-no-go.md`](go-no-go.md) | GO — conditional | PM go/no-go recommendation: GO conditional on stakeholder completing launch checklist and verifying live Pages URL; 6 residual risks documented with fast-follow plan |

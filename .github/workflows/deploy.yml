@@ -1,0 +1,97 @@
+name: Deploy
+
+# Builds the Vite app and deploys it to GitHub Pages.
+# Triggered by pushes to main that touch source or data files, and manually.
+#
+# This workflow makes NO commits to main, so it cannot re-trigger itself.
+# It receives data commits from scan.yml (which pushes with a PAT — see ADR-004).
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      # Frontend source
+      - "src/fe/**"
+      # Scanner output — a data-only commit (from scan.yml) must redeploy
+      # so the live site is never silently behind the latest scan (ADR-003/ADR-004)
+      - "data/**"
+      # Build configuration — a config change should redeploy
+      - "package.json"
+      - "vite.config.ts"
+      - "tsconfig.vite.json"
+  workflow_dispatch:
+    # Allows a manual deploy from the Actions tab.
+
+# Only one Pages deployment may be in flight at a time. Later runs cancel earlier
+# ones in the same concurrency group.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+# Required by the official GitHub Pages deploy action.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build Vite app
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build
+        # npm run build runs copy-data (data/skills.json -> src/fe/public/data/skills.json)
+        # and then vite build, which puts everything under dist/.
+        # Result: dist/data/skills.json is present in the artifact (ADR-003).
+        run: npm run build
+
+      - name: Verify dist/data/skills.json is present
+        # Hard-fail here rather than deploy a site that silently 404s on data fetch.
+        run: |
+          if [ ! -f dist/data/skills.json ]; then
+            echo "ERROR: dist/data/skills.json is missing — ADR-003 copy step may have failed."
+            echo "Check that data/skills.json exists at the repo root and npm run copy-data succeeded."
+            exit 1
+          fi
+          echo "dist/data/skills.json confirmed present."
+          # Print the skillCount so it appears in the build log for quick sanity-check.
+          node -e "const d=require('./dist/data/skills.json');console.log('skillCount in artifact:',d.metadata.skillCount);" 2>/dev/null || true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Vite outputs to dist/ at the repo root (vite.config.ts: build.outDir = '../../dist').
+          path: dist/
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,94 @@
+name: Scan
+
+# Runs on a daily schedule and can be triggered manually.
+# After scanning, commits data/skills.json ONLY if it changed, then pushes
+# using the SCAN_PAT (not the default GITHUB_TOKEN).
+#
+# Why the PAT matters: GitHub prevents a workflow's own commits from triggering
+# other workflows when the default GITHUB_TOKEN is the author of the push.
+# Pushing with a PAT bypasses this guard, so the data commit causes deploy.yml
+# to fire and publish fresh data to Pages. If you ever change this to use the
+# default GITHUB_TOKEN, deploy.yml will silently stop reacting to data commits.
+# See docs/dev-team/adr-004-cicd-pipeline-shape.md for the full reasoning.
+
+on:
+  schedule:
+    # Daily at 06:00 UTC. Adjust the time but keep it at least daily (must-have #5).
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    # Allows a manual run from the Actions tab at any time.
+
+# scan.yml does NOT listen to `push`, so the data commit it produces can never
+# re-trigger this workflow. No loop guard needed beyond this trigger choice.
+
+concurrency:
+  # At most one scan runs at a time. If a manual dispatch arrives while the
+  # scheduled run is in progress, the older run completes first.
+  group: scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: Run scanner and commit data changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch with the PAT so the subsequent push is authenticated as a user,
+          # not as github-actions[bot]. This is what allows the push to trigger
+          # deploy.yml (see header comment above).
+          token: ${{ secrets.SCAN_PAT }}
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run scanner
+        env:
+          # The scanner reads GITHUB_TOKEN from process.env (src/scan/client.ts).
+          # SCAN_PAT has public_repo read scope which covers GitHub API calls
+          # against public repositories. The same PAT is also used for the git
+          # push below; one secret covers both concerns.
+          GITHUB_TOKEN: ${{ secrets.SCAN_PAT }}
+        run: npm run scan
+
+      - name: Commit and push data changes (only if changed)
+        env:
+          # Used by the git push command via the already-checked-out PAT credential.
+          # The checkout step above already configured the remote URL with the PAT,
+          # so no separate git remote set-url is needed.
+          GIT_AUTHOR_NAME: github-skill-scanner[bot]
+          GIT_AUTHOR_EMAIL: github-skill-scanner[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-skill-scanner[bot]
+          GIT_COMMITTER_EMAIL: github-skill-scanner[bot]@users.noreply.github.com
+        run: |
+          # Check whether data/skills.json actually changed.
+          # git status --porcelain emits output only for modified/untracked files.
+          if [ -z "$(git status --porcelain data/)" ]; then
+            echo "No changes in data/ — skipping commit (must-have #5: no empty commits)."
+            exit 0
+          fi
+
+          echo "data/ changed — committing."
+          git add data/
+
+          # Pull latest main with rebase before pushing to handle the case where a
+          # human commit landed on main while the scanner was running.
+          # --autostash preserves the staged data/ changes across the rebase.
+          git pull --rebase --autostash origin main
+
+          # [skip ci] is intentionally absent from the commit message.
+          # scan.yml does not listen to `push`, so it cannot loop on its own commit.
+          # Omitting [skip ci] is what allows deploy.yml to fire on the data push.
+          SCAN_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          git commit -m "chore(data): update skills.json [scan ${SCAN_TS}]"
+
+          git push origin main

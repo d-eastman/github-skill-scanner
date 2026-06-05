@@ -1,0 +1,34 @@
+{
+  "name": "github-skill-scanner",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite src/fe --config vite.config.ts",
+    "copy-data": "node -e \"import('fs').then(fs=>{fs.mkdirSync('src/fe/public/data',{recursive:true});fs.copyFileSync('data/skills.json','src/fe/public/data/skills.json');console.log('data/skills.json copied to src/fe/public/data/')})\"",
+    "build": "npm run copy-data && vite build --config vite.config.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "scan": "tsx src/scan/index.ts"
+  },
+  "dependencies": {
+    "gray-matter": "^4.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/node": "^22.15.0",
+    "@types/react": "^18.3.20",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^26.1.0",
+    "prettier": "^3.5.3",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.6"
+  }
+}
