@@ -23,6 +23,7 @@ import { githubFetch } from "./client.js";
 import { matchSkillPath } from "./layout.js";
 import { parseFrontmatter } from "./parser.js";
 import { writeCatalog } from "./writer.js";
+import { MAX_CONTENT_BYTES, exceedsSizeLimit } from "./limits.js";
 import type { SkillEntry } from "../types/skills.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -127,7 +128,23 @@ async function fetchRawContent(
     return null;
   }
 
-  return response.text();
+  // SEC-003 / TD-008: reject oversized files before/after reading to avoid
+  // unbounded memory use on the runner. Primary guard is the declared length.
+  if (exceedsSizeLimit(response.headers.get("content-length"))) {
+    console.warn(
+      `[scanner] Skipping ${url}: declared size exceeds ${MAX_CONTENT_BYTES} byte limit`
+    );
+    return null;
+  }
+
+  const text = await response.text();
+  if (Buffer.byteLength(text, "utf8") > MAX_CONTENT_BYTES) {
+    console.warn(
+      `[scanner] Skipping ${url}: content exceeds ${MAX_CONTENT_BYTES} byte limit`
+    );
+    return null;
+  }
+  return text;
 }
 
 async function scanRepo(config: RepoConfig): Promise<{

@@ -99,7 +99,7 @@ export default function App() {
         {lastScannedDate && <p className="last-scanned">Last scanned: {lastScannedDate}</p>}
       </header>
 
-      <section aria-label="Skill catalog">
+      <section aria-label="Skill catalog" aria-busy={status === "loading"}>
         {/* State 1: Loading */}
         {status === "loading" && (
           <>

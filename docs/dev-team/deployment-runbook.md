@@ -8,14 +8,18 @@
 
 ## Overview
 
-Two GitHub Actions workflows run this project:
+Four GitHub Actions workflows run this project:
 
 | Workflow | File | Trigger | Job |
 |----------|------|---------|-----|
 | Scan | `.github/workflows/scan.yml` | Daily cron (06:00 UTC) + manual | Runs the scanner; commits `data/skills.json` if changed; pushes with PAT |
-| Deploy | `.github/workflows/deploy.yml` | Push to `main` on relevant paths + manual | Builds Vite app; deploys to GitHub Pages |
+| Deploy | `.github/workflows/deploy.yml` | Push to `main` on relevant paths + manual | Runs **Verify** as a gate, then builds the Vite app and deploys to GitHub Pages |
+| CI | `.github/workflows/ci.yml` | Pull request to `main` + manual | Runs **Verify** as the PR quality gate |
+| Verify (reusable) | `.github/workflows/verify.yml` | Called by Deploy and CI (`workflow_call`) | Typecheck + unit tests + Playwright e2e (incl. the base-path "404-in-prod" check) |
 
 The scan's PAT-authenticated push to `main` triggers the deploy automatically. See the "Trigger chain" section below.
+
+**Deploy gate (TD-010):** `deploy.yml` will not build or publish unless `verify.yml` passes first (typecheck, unit tests, and the base-path e2e). If a deploy run shows the `verify` job red, the site is intentionally NOT republished — read the failing step, fix on a branch, and re-merge. Recommended: require the CI check in branch protection on `main` so PRs can't merge red.
 
 ---
 

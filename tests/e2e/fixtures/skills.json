@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "schemaVersion": 1,
+    "lastScanned": "2026-06-05T00:00:00Z",
+    "repoCount": 1,
+    "reposSucceeded": 1,
+    "reposFailed": 0,
+    "skillCount": 2
+  },
+  "skills": [
+    {
+      "name": "Frontend Design",
+      "description": "Build and refactor React components with modern CSS.",
+      "skillName": "frontend-design",
+      "repo": "anthropics/skills",
+      "repoUrl": "https://github.com/anthropics/skills",
+      "path": "frontend-design/SKILL.md"
+    },
+    {
+      "name": "PDF Processing",
+      "description": "Extract text and tables from PDF documents.",
+      "skillName": "pdf-processing",
+      "repo": "anthropics/skills",
+      "repoUrl": "https://github.com/anthropics/skills",
+      "path": "pdf-processing/SKILL.md"
+    }
+  ]
+}

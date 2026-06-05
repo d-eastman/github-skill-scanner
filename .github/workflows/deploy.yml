@@ -36,8 +36,15 @@ permissions:
   id-token: write
 
 jobs:
+  verify:
+    # Gate the deploy on the full check suite (typecheck + unit + base-path e2e).
+    # Never publish a build that fails verification — this closes the base-path
+    # regression risk before it reaches Pages (TD-003 / TD-010, ADR-003).
+    uses: ./.github/workflows/verify.yml
+
   build:
     name: Build Vite app
+    needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

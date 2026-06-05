@@ -7,8 +7,10 @@
     "dev": "vite src/fe --config vite.config.ts",
     "copy-data": "node -e \"import('fs').then(fs=>{fs.mkdirSync('src/fe/public/data',{recursive:true});fs.copyFileSync('data/skills.json','src/fe/public/data/skills.json');console.log('data/skills.json copied to src/fe/public/data/')})\"",
     "build": "npm run copy-data && vite build --config vite.config.ts",
+    "preview": "vite preview --config vite.config.ts --port 4173 --strictPort",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "npm run build && node tests/e2e/seed-fixture.mjs && playwright test",
     "scan": "tsx src/scan/index.ts"
   },
   "dependencies": {
@@ -17,6 +19,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.5.2",
@@ -29,6 +32,6 @@
     "tsx": "^4.19.2",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
-    "vitest": "^3.2.6"
+    "vitest": "^4.1.8"
   }
 }

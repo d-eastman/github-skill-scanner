@@ -5,9 +5,21 @@
 
 ---
 
+## 🚀 LAUNCHED — 2026-06-05
+
+**The conditional GO is satisfied. v1 is live.** The stakeholder (David Eastman) completed the full
+launch checklist (git push, `SCAN_PAT` secret, Pages = GitHub Actions, first scan + auto-deploy) and
+**verified step 6 in a live browser: the deployed app renders skill cards.** The "works in dev, 404s
+in prod" base-path gate — the one risk that could not be closed pre-deploy — is now **closed by live
+confirmation.** No Critical/High defects open; SEC-001 fixed pre-launch. Remaining work is the
+documented fast-follow backlog below (TD-003 e2e, TD-007 aria-busy, TD-008 fetch size cap, TD-009
+vitest upgrade, fetch-failure error-state test).
+
+---
+
 ## Decision
 
-**GO — conditional.**
+**GO — conditional.** *(Condition met 2026-06-05 — see launch banner above.)*
 
 The team has hit every non-negotiable from the phase plan. The codebase is clean, the data contract is live, 61 tests pass, the critical RCE was fixed and regression-tested before this call, and a real scan against the live `anthropics/skills` repo produced 18 valid skills — clearing the launch content gate (skillCount >= 1) with margin. There are no open Critical or High severity defects. The residual risks are documented, bounded, and carry a fast-follow plan.
 

@@ -1,0 +1,58 @@
+name: Verify
+
+# Reusable check suite: typecheck + unit tests + Playwright e2e.
+#
+# The e2e step is the important one for CI: `npm run test:e2e` builds the app,
+# seeds a deterministic fixture catalog into dist/data/skills.json, and runs
+# Playwright against `vite preview` at the REAL /github-skill-scanner/ base path.
+# That reproduces the "works in dev, 404s in prod" base-path risk (ADR-003) on
+# every run, so a base-path regression fails CI instead of shipping (TD-003/TD-010).
+#
+# Called by ci.yml (on pull requests) and by deploy.yml (as a gate before deploy),
+# so the steps live in exactly one place.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Typecheck, unit tests, e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Install Playwright browser
+        # --with-deps installs the OS libraries Chromium needs on the runner.
+        run: npx playwright install --with-deps chromium
+
+      - name: e2e tests (build + base-path + UI)
+        run: npm run test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
