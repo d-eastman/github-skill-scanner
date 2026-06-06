@@ -2417,3 +2417,1161 @@ is already writing the other two.
 | Focus rings invisible on dark backgrounds | Medium | High (WCAG 2.4.11) | TC-175 (contrast), TC-190–TC-194 (keyboard) |
 | New CSS introduces horizontal overflow at 320px | Low | Medium | TC-195 / TC-144 re-run |
 | Raw hex values remain (token migration incomplete) | Low | Low (implementation quality) | TC-154 (grep check) |
+
+
+---
+
+# Feature Addition: GitHub Enterprise Server (GHE) Support
+
+**Feature:** GitHub Enterprise Server (GHES) Host Parameterization
+**Author:** Remy Dubois (QA Engineer)
+**Date:** 2026-06-05
+**Status:** PRE-IMPLEMENTATION — test cases authored before build begins
+**Source documents:** `requirements-github-enterprise.md` (GHE-1..5, GHE-N1, AC#1–#10);
+`adr-006-ghes-host-parameterization.md` (Decisions 1–5, Decision 4-PAT)
+**Baseline:** 90 unit tests + 12 e2e tests — all must remain green
+
+---
+
+## GHE Scope
+
+### What this section tests
+
+URL derivation from the `host` field (API base, Contents-API path, `repoUrl`); PAT routing
+security invariant (`buildHeaders(host)` sends the right token to the right host and never
+the wrong one); `repos.json` config loading with the new `host` field; the Contents-API
+response-handling path (raw media type + base64 fallback); and regression coverage of every
+existing test area that the GHES changes touch.
+
+### What this section does NOT test
+
+- A live scan against a real GHES instance — this requires a reachable GHES host, which is
+  blocked pending resolution of OQ-GHE-2 (CI network reachability). All GHES scanner
+  behavior is unit-testable with mocked `fetch` / environment variables; no live GHES is
+  needed for the automated suite.
+- CI workflow wiring (`scan.yml` changes to inject `GHES_SCAN_PAT`) — this is deferred
+  per ADR-006 Decision 6 until OQ-GHE-1 and OQ-GHE-2 are resolved. The workflow changes
+  are a manual inspection item at that time.
+- Public-exposure or self-hosted-runner concerns (OQ-GHE-1, OQ-GHE-2) — these are
+  stakeholder and DevOps decisions, not scanner-code test concerns.
+- Multi-host mixed catalog — explicitly out of scope per requirements delta.
+
+### Test environment note
+
+All automated GHE test cases use mocked `fetch` (Vitest `vi.spyOn(global, "fetch")`
+or equivalent module stub) and controlled `process.env` values. The GHES host used in
+all test cases is the placeholder `github.example.com`. No live network calls are needed
+for any TC in this section.
+
+### TC number range
+
+TC-200 through TC-260. URL derivation: 200–214. PAT routing / security: 220–232.
+Config loading: 240–246. Contents API response handling: 250–255. Regression: 260–269.
+
+---
+
+## GHE Test Cases
+
+### URL Derivation (unit)
+
+These tests exercise the host-to-URL helper that Decision 2 of ADR-006 specifies. The
+helper is a pure function: `host → { apiBase, repoInfoUrl, treeUrl, contentsUrl, repoUrl }`.
+All five outputs are deterministic given the host string — no network, no env vars needed.
+
+---
+
+#### TC-200: GHES host → API base is `https://<host>/api/v3`
+**Hypothesis:** Given `host = "github.example.com"`, the derived `apiBase` is exactly
+`https://github.example.com/api/v3`. No trailing slash. No `/api/v3` duplication.
+This is GHE-1 / AC#1.
+**Preconditions:** URL helper implemented per ADR-006 Decision 2.
+**Level:** Automated unit (new test in `tests/scanner/`, e.g. `urlDerivation.test.ts`)
+**Automatable now:** Yes — pure function, no mocks needed.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Call the URL helper with `host = "github.example.com"`.
+2. Assert `result.apiBase === "https://github.example.com/api/v3"`.
+
+**Expected result:** `"https://github.example.com/api/v3"` — no scheme variants, no extra path
+segments, no trailing slash.
+
+---
+
+#### TC-201: GHES host → Git Trees call URL uses GHES api/v3 base (not api.github.com)
+**Hypothesis:** Given GHES host `github.example.com`, owner `team-a`, repo `skills`, branch
+`main`, the derived trees URL is `https://github.example.com/api/v3/repos/team-a/skills/git/trees/main?recursive=1`.
+No call to `api.github.com`. This is GHE-1 / AC#2.
+**Preconditions:** URL helper implemented.
+**Level:** Automated unit
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Call the URL helper with `host = "github.example.com"`, `owner = "team-a"`, `repo = "skills"`, `branch = "main"`.
+2. Assert `result.treeUrl === "https://github.example.com/api/v3/repos/team-a/skills/git/trees/main?recursive=1"`.
+3. Assert `result.treeUrl` does NOT contain `"api.github.com"`.
+
+**Expected result:** URL is on the GHES api/v3 base; `api.github.com` is absent.
+
+---
+
+#### TC-202: GHES host → repo info URL uses GHES api/v3 base
+**Hypothesis:** The repo info URL (used to get `default_branch`) for a GHES repo is
+`https://github.example.com/api/v3/repos/team-a/skills`. GHE-1 / AC#1.
+**Preconditions:** URL helper implemented.
+**Level:** Automated unit
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Call URL helper with `host = "github.example.com"`, `owner = "team-a"`, `repo = "skills"`.
+2. Assert `result.repoInfoUrl === "https://github.example.com/api/v3/repos/team-a/skills"`.
+
+**Expected result:** `"https://github.example.com/api/v3/repos/team-a/skills"`.
+
+---
+
+#### TC-203: github.com host → API base is `https://api.github.com` (backward compat)
+**Hypothesis:** Given `host = "github.com"`, the derived `apiBase` is `https://api.github.com`
+— NOT `https://github.com/api/v3`. This is the github.com backward-compat special-case in
+ADR-006 Decision 2. It preserves the existing behavior and keeps the 90+12 green suite green.
+**Preconditions:** URL helper implemented with the `host === "github.com"` special-case.
+**Level:** Automated unit
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Call URL helper with `host = "github.com"`.
+2. Assert `result.apiBase === "https://api.github.com"`.
+3. Assert `result.apiBase` does NOT equal `"https://github.com/api/v3"`.
+
+**Expected result:** `"https://api.github.com"`. The naive substitution form
+(`https://github.com/api/v3`) must never appear for github.com.
+
+---
+
+#### TC-204: github.com host → repo info and trees URLs use `api.github.com` base
+**Hypothesis:** Given `host = "github.com"`, all derived API call URLs use
+`https://api.github.com` as the base — identical to the current hard-coded behavior.
+This confirms no regression for the existing github.com deployment.
+**Preconditions:** Same as TC-203.
+**Level:** Automated unit
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Call URL helper with `host = "github.com"`, `owner = "anthropics"`, `repo = "skills"`, `branch = "main"`.
+2. Assert `result.repoInfoUrl === "https://api.github.com/repos/anthropics/skills"`.
+3. Assert `result.treeUrl === "https://api.github.com/repos/anthropics/skills/git/trees/main?recursive=1"`.
+
+**Expected result:** Both URLs are on `api.github.com`, matching the current production behavior.
+
+---
+
+#### TC-205: GHES host → Contents API URL built correctly (GHE-2 / OQ-GHE-3 / AC#3)
+**Hypothesis:** Given GHES host `github.example.com`, owner `team-a`, repo `skills`,
+branch `main`, path `skills/pdf/SKILL.md`, the derived Contents API URL is:
+`https://github.example.com/api/v3/repos/team-a/skills/contents/skills/pdf/SKILL.md?ref=main`.
+This is on the same api/v3 base as every other call — not a separate raw host. GHE-2 / AC#3.
+**Preconditions:** URL helper implemented.
+**Level:** Automated unit
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Call URL helper with `host = "github.example.com"`, `owner = "team-a"`, `repo = "skills"`,
+   `branch = "main"`, `path = "skills/pdf/SKILL.md"`.
+2. Assert `result.contentsUrl === "https://github.example.com/api/v3/repos/team-a/skills/contents/skills/pdf/SKILL.md?ref=main"`.
+3. Assert URL contains `"?ref=main"` (branch parameter present).
+4. Assert URL does NOT contain `"raw.githubusercontent.com"`.
+
+**Expected result:** Contents API URL on the GHES api/v3 base; no raw.githubusercontent.com;
+`?ref=` parameter present.
+
+---
+
+#### TC-206: github.com host → Contents API URL uses `api.github.com` base
+**Hypothesis:** Given `host = "github.com"`, the Contents API URL is on `api.github.com`
+— identical in structure to the GHES form but on the github.com API base. This confirms
+the switch from `raw.githubusercontent.com` to the Contents API applies uniformly to both
+hosts per ADR-006 Decision 3.
+**Preconditions:** URL helper implemented.
+**Level:** Automated unit
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Call URL helper with `host = "github.com"`, `owner = "anthropics"`, `repo = "skills"`,
+   `branch = "main"`, `path = "frontend-design/SKILL.md"`.
+2. Assert `result.contentsUrl === "https://api.github.com/repos/anthropics/skills/contents/frontend-design/SKILL.md?ref=main"`.
+3. Assert URL does NOT contain `"raw.githubusercontent.com"`.
+
+**Expected result:** Contents API URL on `api.github.com`; no `raw.githubusercontent.com`.
+**Regression note:** This also confirms the switch away from `raw.githubusercontent.com`
+for github.com. Existing scanner tests that mock `raw.githubusercontent.com` fetches will
+need their mock URLs updated to the new Contents API form (see TC-260).
+
+---
+
+#### TC-207: GHES host → `repoUrl` is `https://<host>/<owner>/<repo>` with no trailing slash
+**Hypothesis:** For GHES host `github.example.com`, owner `team-a`, repo `skills`, the
+derived `repoUrl` is `https://github.example.com/team-a/skills` — no trailing slash,
+no `/api/v3`, no `/raw/`. GHE-3 / AC#4.
+**Preconditions:** URL helper implemented.
+**Level:** Automated unit
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Call URL helper with `host = "github.example.com"`, `owner = "team-a"`, `repo = "skills"`.
+2. Assert `result.repoUrl === "https://github.example.com/team-a/skills"`.
+3. Assert `result.repoUrl` does NOT end with `"/"`.
+4. Assert `result.repoUrl` does NOT contain `"/api/v3"`.
+5. Assert `result.repoUrl` does NOT contain `"/raw/"`.
+
+**Expected result:** `"https://github.example.com/team-a/skills"`. The ADR-002 no-trailing-slash
+invariant is preserved.
+
+---
+
+#### TC-208: github.com host → `repoUrl` is `https://github.com/<owner>/<repo>` (backward compat)
+**Hypothesis:** Given `host = "github.com"`, the derived `repoUrl` is
+`https://github.com/anthropics/skills` — identical to the current hard-coded value.
+This is the key backward-compat assertion: existing e2e fixtures and frontend tests assert
+`"https://github.com/anthropics/skills"` and must not change.
+**Preconditions:** URL helper implemented.
+**Level:** Automated unit
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Call URL helper with `host = "github.com"`, `owner = "anthropics"`, `repo = "skills"`.
+2. Assert `result.repoUrl === "https://github.com/anthropics/skills"`.
+
+**Expected result:** `"https://github.com/anthropics/skills"` — byte-identical to current
+production output. Any deviation here is a regression that would turn existing writer tests
+and e2e fixture assertions red.
+
+---
+
+#### TC-209: `repoUrl` no `/api/v3` leakage — GHES host only produces host-direct URL
+**Hypothesis:** This is a targeted anti-regression: the `repoUrl` for a GHES repo must
+never contain `/api/v3`. A naive implementation that reuses `apiBase` for `repoUrl`
+construction would produce `https://github.example.com/api/v3/team-a/skills` — which is
+a URL that opens an API endpoint, not a browser-navigable repo page. GHE-3 AC#6.
+**Preconditions:** URL helper implemented.
+**Level:** Automated unit
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Call URL helper with `host = "github.example.com"`, `owner = "team-a"`, `repo = "skills"`.
+2. Assert `result.repoUrl` does NOT contain `"/api/v3"`.
+3. Assert `result.repoUrl === "https://github.example.com/team-a/skills"`.
+
+**Expected result:** `repoUrl` is the browser-navigable form, not the API form.
+The `/api/v3` segment must be absent.
+
+---
+
+#### TC-210: Install command uses GHES `repoUrl` (frontend driven by data — no FE logic change)
+**Hypothesis:** When a `SkillEntry` from a GHES scan has
+`repoUrl = "https://github.example.com/team-a/skills"`, the frontend's `buildInstallCommand`
+produces `npx skills add https://github.example.com/team-a/skills --skill pdf --a github-copilot -y`
+without any frontend code change. This confirms ADR-006 Decision 5: the frontend is already
+data-driven; only `repoUrl` value changes. GHE-3 / AC#5.
+**Preconditions:** `buildInstallCommand` unchanged; GHES `repoUrl` value used.
+**Level:** Automated unit (extend `frontend.test.tsx` command-string describe block)
+**Automatable now:** Yes — pass a GHES `repoUrl` to the existing command builder.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Construct a `SkillEntry` with `repoUrl = "https://github.example.com/team-a/skills"`,
+   `skillName = "pdf"`.
+2. Call `buildInstallCommand(skill)`.
+3. Assert result === `"npx skills add https://github.example.com/team-a/skills --skill pdf -a github-copilot -y"`.
+
+**Expected result:** GHES host appears verbatim in the install command. No github.com
+hostname present. No code change to `buildInstallCommand` was needed.
+
+---
+
+#### TC-211: Repo card link uses GHES `repoUrl` as `href` (frontend data-driven, no change)
+**Hypothesis:** When a `SkillCard` is rendered with a GHES `repoUrl`, the card's repo link
+`<a>` has `href = "https://github.example.com/team-a/skills"`. GHE-3 / AC#6.
+**Preconditions:** `SkillCard` component unchanged; GHES `repoUrl` value used.
+**Level:** Automated unit (extend `frontend.test.tsx` SkillCard describe block)
+**Automatable now:** Yes — render `SkillCard` with a GHES `repoUrl`.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Render `SkillCard` with `repoUrl = "https://github.example.com/team-a/skills"`.
+2. Query the repo `<a>` link element.
+3. Assert `href === "https://github.example.com/team-a/skills"`.
+4. Assert `target === "_blank"` and `rel === "noopener noreferrer"` (unchanged from existing behavior).
+
+**Expected result:** Card link points at the GHES host; `target` and `rel` are unchanged.
+
+---
+
+#### TC-212: API base derivation — no scheme in host input (bare hostname only)
+**Hypothesis:** The URL helper correctly handles a bare hostname input (`github.example.com`)
+without a scheme prefix. A caller that accidentally passes `https://github.example.com`
+as the host would produce a double-scheme URL (`https://https://...`). The helper must
+either normalize or require the bare form — whichever the Lead implements, this test fixes
+the contract.
+**Preconditions:** URL helper implemented; `host` field in `repos.json` is bare hostname
+per ADR-006 Decision 1.
+**Level:** Automated unit
+**Automatable now:** Yes — depends on implementation contract (normalize vs. reject).
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Call URL helper with a bare hostname `"github.example.com"` (no scheme).
+2. Assert `result.apiBase` starts with exactly one `"https://"` and is `"https://github.example.com/api/v3"`.
+3. (If the Lead chooses to normalize): call with `"https://github.example.com"` and assert same result.
+4. (If the Lead chooses to reject): call with `"https://github.example.com"` and assert it throws
+   or returns a documented error.
+
+**Expected result:** Either normalization or explicit rejection; never a double-scheme URL.
+**Note for Lead:** Decide the contract at implementation time. Bare-hostname-only is
+the ADR-006 Decision 1 stated form and is simplest to validate; document that requirement
+in `loadReposConfig` validation.
+
+---
+
+#### TC-213: `apiBase` and `repoUrl` are derived from the same `host` — no independent setting
+**Hypothesis:** There is no code path that sets `apiBase` and `repoUrl` independently from
+different sources. Both must be derivable by calling the URL helper with the same `host`
+string. GHE-5: one place to change the host. This is a code-structure assertion.
+**Preconditions:** URL helper implemented; `index.ts` refactored to use it.
+**Level:** Code inspection (structural — verify no second hard-coded host constant exists)
+**Automatable now:** Partially — grep for any remaining hard-coded github.com strings in
+`src/scan/index.ts` and `src/scan/client.ts` after the refactor.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. After implementation, run:
+   `grep -n "github\.com\|api\.github\.com\|raw\.githubusercontent\.com" src/scan/index.ts src/scan/client.ts`
+2. Assert zero matches (the only place `github.com` appears should be in the URL helper's
+   own special-case branch, not as a separate constant elsewhere).
+
+**Expected result:** No hard-coded github.com, api.github.com, or raw.githubusercontent.com
+strings remain in `index.ts` or `client.ts` outside the URL helper's special-case block.
+Any such string is a GHE-5 violation (second source of truth).
+
+---
+
+#### TC-214: github.com scan — no `api.github.com` vs GHES form mixing in a single run
+**Hypothesis:** When `repos.json` contains `host = "github.com"` entries, every API call
+during that scan uses `https://api.github.com` as the base and never `https://github.com/api/v3`.
+This is a runtime assertion: the per-entry URL derivation must not accidentally pick up a
+GHES-style base for github.com entries.
+**Preconditions:** Scanner refactored; `fetch` mocked to capture called URLs.
+**Level:** Automated unit (mock `fetch`, run `scanRepo` for a github.com entry,
+inspect captured URLs)
+**Automatable now:** Yes — mock `fetch` and verify no `github.com/api/v3` URL is called.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Mock `fetch` to record called URLs and return stub responses.
+2. Run the scanner with `config = { host: "github.com", owner: "anthropics", repo: "skills" }`.
+3. Inspect all captured `fetch` call URLs.
+4. Assert every URL starts with `"https://api.github.com/"` (not `"https://github.com/api/v3/"`).
+
+**Expected result:** All GitHub API calls go to `api.github.com`; no `/api/v3` path on
+the github.com hostname.
+
+---
+
+### PAT Routing / Security (unit — CRITICAL)
+
+These are the highest-severity test cases in this section. A cross-host token leak — sending
+the GHES PAT to api.github.com or sending GITHUB_TOKEN to the GHES host — is a security
+failure, not just a bug. These cases must pass before any GHES deployment.
+
+GHE-4 / AC#8 and AC#9 are the governing acceptance criteria.
+
+---
+
+#### TC-220: `buildHeaders("github.example.com")` attaches GHES_TOKEN, not GITHUB_TOKEN
+**Hypothesis:** When called with a GHES host, `buildHeaders` reads `process.env.GHES_TOKEN`
+and places it in the `Authorization` header. It does NOT read `process.env.GITHUB_TOKEN` or
+`process.env.SCAN_PAT`. GHE-4 / AC#8.
+**Preconditions:** `client.ts` refactored to `buildHeaders(host)` per ADR-006 Decision 4-PAT.
+Both `GHES_TOKEN` and `GITHUB_TOKEN` set in process.env for this test.
+**Level:** Automated unit — CRITICAL
+**Automatable now:** Yes — set env vars, call `buildHeaders`, assert Authorization value.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Set `process.env.GHES_TOKEN = "ghes-test-pat-value"`.
+2. Set `process.env.GITHUB_TOKEN = "github-test-pat-value"`.
+3. Call `buildHeaders("github.example.com")`.
+4. Assert `headers["Authorization"] === "Bearer ghes-test-pat-value"`.
+5. Assert `headers["Authorization"]` does NOT equal `"Bearer github-test-pat-value"`.
+
+**Expected result:** Authorization header carries the GHES token; github.com token absent.
+
+---
+
+#### TC-221: `buildHeaders("github.com")` attaches GITHUB_TOKEN, not GHES_TOKEN
+**Hypothesis:** When called with `host = "github.com"`, `buildHeaders` reads
+`process.env.GITHUB_TOKEN` and does NOT use `process.env.GHES_TOKEN`. This is the
+backward-compat path and the anti-leak direction for the github.com case. GHE-4 / AC#8.
+**Preconditions:** Same as TC-220.
+**Level:** Automated unit — CRITICAL
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Set `process.env.GITHUB_TOKEN = "github-test-pat-value"`.
+2. Set `process.env.GHES_TOKEN = "ghes-test-pat-value"`.
+3. Call `buildHeaders("github.com")`.
+4. Assert `headers["Authorization"] === "Bearer github-test-pat-value"`.
+5. Assert `headers["Authorization"]` does NOT equal `"Bearer ghes-test-pat-value"`.
+
+**Expected result:** Authorization header carries the github.com token; GHES token absent.
+
+---
+
+#### TC-222: GHES request NEVER carries GITHUB_TOKEN — no-leak assertion (security invariant)
+**Hypothesis:** A `githubFetch` call to a GHES URL does not attach `GITHUB_TOKEN` as the
+Authorization value under any circumstance. This test asserts the header value directly
+on the request, not just on `buildHeaders` output. It is the end-to-end expression of the
+"no cross-host token leak" invariant from ADR-006 Decision 4-PAT / GHE-4 AC#8.
+**Preconditions:** `githubFetch` refactored to call `buildHeaders(host)` per-request;
+`fetch` mocked to capture the `init.headers` argument.
+**Level:** Automated unit — CRITICAL (security invariant)
+**Automatable now:** Yes — mock `fetch`, capture request headers, assert.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Set `process.env.GITHUB_TOKEN = "github-tok"`.
+2. Set `process.env.GHES_TOKEN = "ghes-tok"`.
+3. Mock `fetch` to capture the `init` argument (specifically `init.headers`).
+4. Call `githubFetch("https://github.example.com/api/v3/repos/team-a/skills")`.
+5. Extract the `Authorization` header from the captured request.
+6. Assert `Authorization === "Bearer ghes-tok"`.
+7. Assert `Authorization !== "Bearer github-tok"`.
+8. Assert `Authorization` does NOT contain `"github-tok"` in any form.
+
+**Expected result:** Only the GHES token appears in the Authorization header for a GHES
+URL. The github.com token is completely absent from the request.
+
+---
+
+#### TC-223: github.com request NEVER carries GHES_TOKEN — no-leak assertion (security invariant)
+**Hypothesis:** A `githubFetch` call to an `api.github.com` URL does not attach `GHES_TOKEN`
+as the Authorization value under any circumstance. The inverse of TC-222. GHE-4 / AC#8.
+**Preconditions:** Same as TC-222.
+**Level:** Automated unit — CRITICAL (security invariant)
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Set `process.env.GITHUB_TOKEN = "github-tok"`.
+2. Set `process.env.GHES_TOKEN = "ghes-tok"`.
+3. Mock `fetch` to capture `init.headers`.
+4. Call `githubFetch("https://api.github.com/repos/anthropics/skills")`.
+5. Assert `Authorization === "Bearer github-tok"`.
+6. Assert `Authorization !== "Bearer ghes-tok"`.
+7. Assert `Authorization` does NOT contain `"ghes-tok"` in any form.
+
+**Expected result:** Only the github.com token appears. The GHES token is absent from
+any request to api.github.com.
+
+---
+
+#### TC-224: Both tokens set — GHES scan uses only GHES_TOKEN across all three call types
+**Hypothesis:** In a full mock scan of a GHES repo (repo-info call, trees call, contents
+call), every single `fetch` call carries only `GHES_TOKEN` in its Authorization header.
+None of the three call types accidentally reverts to `GITHUB_TOKEN`. This is the
+integration-level form of the security invariant: all three call paths through the same
+`githubFetch` wrapper use the same per-request host→token routing.
+**Preconditions:** Full scanner pipeline mockable; all three `fetch` calls capturable.
+**Level:** Automated unit — CRITICAL (integration-level security check)
+**Automatable now:** Yes — mock `fetch` with stub responses for all three call types,
+run `scanRepo`, inspect all captured headers.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Set `process.env.GITHUB_TOKEN = "github-tok"`.
+2. Set `process.env.GHES_TOKEN = "ghes-tok"`.
+3. Mock `fetch` to capture `init.headers` for each call, then return:
+   - Stub repo-info response: `{ default_branch: "main" }`
+   - Stub trees response: `{ tree: [{ path: "SKILL.md", type: "blob" }], truncated: false }`
+   - Stub contents response: SKILL.md content via raw or base64
+4. Call `scanRepo({ host: "github.example.com", owner: "team-a", repo: "skills" })`.
+5. For every captured `fetch` call, assert `Authorization === "Bearer ghes-tok"`.
+6. Assert `"github-tok"` does not appear in any captured request header.
+
+**Expected result:** All three call types (repo info, trees, contents) carry exactly
+`"Bearer ghes-tok"`. The github.com token is never sent.
+
+---
+
+#### TC-225: Missing GHES_TOKEN → warning logged, proceeds without auth (fail-soft preserved)
+**Hypothesis:** When `GHES_TOKEN` is not set and a GHES-host request is made, `buildHeaders`
+logs a warning (naming the GHES host) and returns headers without an Authorization field.
+This mirrors the existing `GITHUB_TOKEN` absent behavior in the current `client.ts`.
+No new hard failure mode is introduced. GHE-4 AC: "missing token → warn and continue."
+**Preconditions:** `GHES_TOKEN` unset in `process.env`; `buildHeaders("github.example.com")`
+called.
+**Level:** Automated unit
+**Automatable now:** Yes — spy on `console.warn`, call `buildHeaders`, assert.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Delete `process.env.GHES_TOKEN` (ensure it is not set).
+2. Spy on `console.warn`.
+3. Call `buildHeaders("github.example.com")`.
+4. Assert `console.warn` was called with a message containing `"GHES_TOKEN"` or
+   `"github.example.com"` (or both — the warning must name the missing token / host).
+5. Assert the returned headers do NOT contain an `"Authorization"` key.
+6. Assert no exception was thrown.
+
+**Expected result:** Warning logged naming the GHES host or the missing token;
+no Authorization header; no thrown error. Scanner proceeds unauthenticated.
+
+---
+
+#### TC-226: Missing GITHUB_TOKEN for github.com → existing warn-and-continue preserved
+**Hypothesis:** When `GITHUB_TOKEN` is not set for a github.com request, the existing
+unauthenticated-fallback behavior is unchanged. The refactor from module-load-time
+`REQUEST_HEADERS` to per-request `buildHeaders(host)` must not alter the github.com
+missing-token behavior observed in TC-004.
+**Preconditions:** `GITHUB_TOKEN` unset; `buildHeaders("github.com")` called.
+**Level:** Automated unit (regression on existing behavior)
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Delete `process.env.GITHUB_TOKEN`.
+2. Spy on `console.warn`.
+3. Call `buildHeaders("github.com")`.
+4. Assert `console.warn` was called (message warns about missing token).
+5. Assert returned headers do NOT contain `"Authorization"`.
+6. Assert no exception thrown.
+
+**Expected result:** Same warn-and-continue behavior as today for github.com. The refactor
+to per-request headers must not change this behavior.
+
+---
+
+#### TC-227: `buildHeaders` host routing — unrecognized GHES host treated as GHES (not github.com)
+**Hypothesis:** Any host value other than `"github.com"` is treated as a GHES host and
+routes to `GHES_TOKEN`. A host like `"github.acmecorp.com"` or `"my-ghes.internal"` must
+never be treated as github.com. This confirms the routing logic is an explicit
+`host === "github.com"` check (whitelist), not a substring match that could be spoofed.
+**Preconditions:** `buildHeaders` implemented with explicit `host === "github.com"` check.
+**Level:** Automated unit — CRITICAL
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Set `process.env.GHES_TOKEN = "ghes-tok"`.
+2. Set `process.env.GITHUB_TOKEN = "github-tok"`.
+3. Call `buildHeaders("github.acmecorp.com")`.
+4. Assert `Authorization === "Bearer ghes-tok"`.
+5. Call `buildHeaders("my-ghes.internal")`.
+6. Assert `Authorization === "Bearer ghes-tok"`.
+7. Call `buildHeaders("xgithub.com")` (github.com substring, but not exact match).
+8. Assert `Authorization === "Bearer ghes-tok"` (NOT the github.com token).
+
+**Expected result:** All non-`"github.com"` hosts route to `GHES_TOKEN`. The check is
+an exact equality, not a substring match.
+
+---
+
+#### TC-228: Contents API fetch for GHES repo routes through `githubFetch` (not bare `fetch`)
+**Hypothesis:** After the ADR-006 Decision 3 change, the contents fetch (previously
+`fetch(raw.githubusercontent.com/...)`) is replaced by a call to `githubFetch(contentsUrl)`.
+This is critical: if the contents fetch still goes through bare `fetch()` it bypasses
+the per-request header routing and the GHES PAT is never attached. GHE-4 security invariant.
+**Preconditions:** `fetchRawContent` refactored to use `githubFetch` for the Contents API.
+**Level:** Code inspection + automated unit
+**Automatable now:** Yes — mock `githubFetch` and bare `fetch` separately; assert only
+`githubFetch` is called for content fetches.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Mock `githubFetch` to capture calls and return a stub contents response.
+2. Spy on global `fetch` to detect any bare calls.
+3. Run `fetchRawContent` (or the refactored equivalent) for a GHES repo.
+4. Assert `githubFetch` was called with the Contents API URL.
+5. Assert bare global `fetch` was NOT called for the contents URL.
+
+**Expected result:** Content fetch goes through `githubFetch` — which applies per-host
+token routing. Bare `fetch()` is not called for the content fetch path.
+
+---
+
+#### TC-229: Rate-limit headers logged for Contents API call (stale comment corrected)
+**Hypothesis:** After routing content fetches through `githubFetch`, the rate-limit
+header logging in `client.ts` applies to content calls. The stale comment in `index.ts`
+("does not count against core API rate limit") no longer exists — it has been corrected.
+**Preconditions:** Comment corrected per ADR-006 Decision 3 note; Contents API routed
+through `githubFetch`.
+**Level:** Code inspection
+**Automatable now:** Yes — grep for the stale comment.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Run: `grep -n "does not count against.*rate limit" src/scan/index.ts`
+2. Assert zero matches.
+
+**Expected result:** The stale comment is absent from `index.ts`. If it remains, it
+is actively misleading to the next maintainer and must be treated as a defect.
+
+---
+
+#### TC-230: GHES_TOKEN is never present in any committed file or log output
+**Hypothesis:** The scanner does not print the token value to stdout or stderr at any
+log level. The PAT is read from env and placed only in the `Authorization` header —
+never echoed to console.
+**Preconditions:** Scanner implemented; test run with `GHES_TOKEN` set to a known value.
+**Level:** Automated unit (capture console output; search for token value)
+**Automatable now:** Yes — spy on `console.log`, `console.warn`, `console.error`;
+assert token value never appears.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Set `process.env.GHES_TOKEN = "UNIQUE-SECRET-VALUE-12345"`.
+2. Spy on `console.log`, `console.warn`, `console.error`.
+3. Run a mocked scan.
+4. Collect all console output.
+5. Assert none of the output contains `"UNIQUE-SECRET-VALUE-12345"`.
+
+**Expected result:** Token value is not present in any console output. This is a
+basic secret-hygiene check.
+
+---
+
+### Config Loading (unit)
+
+These cases test `loadReposConfig()` behavior after the `host` field is added to each
+`repos.json` entry per ADR-006 Decision 1.
+
+---
+
+#### TC-240: `repos.json` entry with `host` field loads correctly into `RepoConfig`
+**Hypothesis:** `loadReposConfig()` parses a `repos.json` containing entries with the
+new `host` field and returns a `RepoConfig[]` where each entry has `host`, `owner`,
+and `repo` populated. GHE-5 / AC: config is the source of truth for the host.
+**Preconditions:** `loadReposConfig` updated to accept `RepoConfig.host`; type updated.
+**Level:** Automated unit
+**Automatable now:** Yes — stub the file read with a known JSON string.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Stub the `repos.json` read to return:
+   `[{ "host": "github.example.com", "owner": "team-a", "repo": "skills" }]`
+2. Call `loadReposConfig()`.
+3. Assert result is `[{ host: "github.example.com", owner: "team-a", repo: "skills" }]`.
+4. Assert `result[0].host === "github.example.com"`.
+
+**Expected result:** `host` field is present and correctly typed in the returned config.
+
+---
+
+#### TC-241: `repos.json` array contract preserved — file is still an array (not a top-level object)
+**Hypothesis:** The new `host` field is per-entry; the file remains a JSON array.
+`loadReposConfig`'s `Array.isArray(configs)` guard still triggers correctly for an array.
+ADR-006 Decision 1 rationale: array contract preserved to avoid breaking downstream iteration.
+**Preconditions:** `repos.json` still formatted as array with per-entry `host`.
+**Level:** Automated unit
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Stub `repos.json` to return a valid array with one entry.
+2. Call `loadReposConfig()`.
+3. Assert no exception thrown.
+4. Assert `Array.isArray(result)` is true.
+
+**Expected result:** Array contract intact; no exception.
+
+---
+
+#### TC-242: `repos.json` with missing `host` field — behavior defined and flagged
+**Hypothesis:** An entry without a `host` field (e.g. a legacy entry `{ "owner": "...", "repo": "..." }`)
+results in a defined behavior: either a validation error from `loadReposConfig` (preferred,
+fail fast) or a fallback to a default host. This test verifies whichever behavior the Lead
+implements — the exact outcome must be documented at implementation time.
+**Preconditions:** `loadReposConfig` validation logic implemented.
+**Level:** Automated unit
+**Automatable now:** Yes — but the expected behavior (throw vs. default) is the Lead's call.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Stub `repos.json` to return `[{ "owner": "team-a", "repo": "skills" }]` (no `host`).
+2. Call `loadReposConfig()`.
+3. Observe: thrown error OR returned config with a defined fallback.
+
+**Expected result (for the Lead to decide and document):**
+- Preferred: `loadReposConfig` throws with a message indicating the `host` field is
+  required (fail fast; missing host = scanner cannot derive any URL; silent default
+  would produce wrong API base).
+- Acceptable alternative: falls back to `"github.com"` as the default host if `host`
+  is absent (backward-compat path).
+**Note for Lead:** The fail-fast behavior is safer — a missing `host` with no fallback
+would produce `https://undefined/api/v3` calls that fail silently. Document the choice here.
+
+---
+
+#### TC-243: `repos.json` with empty string `host` — treated as missing / invalid
+**Hypothesis:** A `host: ""` (empty string) is not a valid hostname and must be rejected
+by validation with the same behavior as a missing host (TC-242 fail-fast path) rather than
+producing `https:///api/v3` URLs.
+**Preconditions:** `loadReposConfig` validation checks for non-empty string.
+**Level:** Automated unit
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Stub `repos.json` to return `[{ "host": "", "owner": "team-a", "repo": "skills" }]`.
+2. Call `loadReposConfig()`.
+3. Assert an error is thrown with a message indicating `host` is invalid.
+
+**Expected result:** Error thrown. `host: ""` is not a valid bare hostname and must be
+rejected before it reaches the URL helper.
+
+---
+
+#### TC-244: TypeScript — `RepoConfig` interface updated with `host: string` typechecks cleanly
+**Hypothesis:** Adding `host: string` to `RepoConfig` in `src/scan/index.ts` does not
+introduce TypeScript errors. All callers of `loadReposConfig()` that destructure
+`{ owner, repo }` from the result still compile (they may ignore the new field without error).
+**Preconditions:** Type updated.
+**Level:** Automated (tsc — `npm run typecheck`)
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Apply type change.
+2. Run `npm run typecheck`.
+
+**Expected result:** Zero TypeScript errors. Callers that don't use `host` are unaffected
+(TypeScript structural typing allows ignoring extra fields in destructuring).
+
+---
+
+### Contents API Response Handling (unit)
+
+These tests cover the new `fetchRawContent` implementation that replaces the
+`raw.githubusercontent.com` fetch with the Contents API. ADR-006 Decision 3.
+
+---
+
+#### TC-250: Contents API with `Accept: application/vnd.github.raw` → response body used directly
+**Hypothesis:** When the Contents API returns a raw body (via the raw media type header),
+`fetchRawContent` uses `response.text()` directly — identical to the previous raw URL path.
+No base64 decode needed. The size guard on `Content-Length` still fires before the read.
+**Preconditions:** `fetchRawContent` refactored to use Contents API with raw Accept header.
+**Level:** Automated unit (mock `fetch` to return a raw text response)
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Mock `githubFetch` to return a Response with body `"---\nname: PDF\n---"` and
+   `Content-Type: text/plain` (raw bytes, not JSON).
+2. Call `fetchRawContent` for a GHES repo.
+3. Assert returned string equals `"---\nname: PDF\n---"`.
+4. Assert no base64 decode was attempted.
+
+**Expected result:** Raw body returned directly via `response.text()`.
+
+---
+
+#### TC-251: Contents API base64 fallback — JSON response with base64 `content` decoded correctly
+**Hypothesis:** When the Contents API returns the default JSON envelope
+(`{ "content": "<base64>", "encoding": "base64" }`), `fetchRawContent` decodes it to the
+correct UTF-8 string. This is the ADR-006 Decision 3 fallback path for GHES instances
+that do not honor the raw media type header.
+**Preconditions:** Fallback branch implemented in `fetchRawContent`.
+**Level:** Automated unit
+**Automatable now:** Yes — mock `githubFetch` to return a base64 JSON response.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Encode `"---\nname: PDF\n---"` as base64: `Buffer.from("---\nname: PDF\n---").toString("base64")`.
+2. Mock `githubFetch` to return a JSON response:
+   `{ "content": "<base64value>\n", "encoding": "base64" }` with `Content-Type: application/json`.
+3. Call `fetchRawContent`.
+4. Assert returned string equals `"---\nname: PDF\n---"`.
+
+**Expected result:** Base64 content decoded to the correct UTF-8 string. The `\n`
+line-breaks that GitHub adds to base64 content must be stripped before decoding.
+
+---
+
+#### TC-252: Size guard preserved — oversized Contents API response rejected before read
+**Hypothesis:** The `exceedsSizeLimit` pre-read check on `Content-Length` still applies
+to Contents API responses. A response declaring a content length exceeding `MAX_CONTENT_BYTES`
+is rejected before `response.text()` is called. SEC-003 / TD-008 intent preserved.
+**Preconditions:** Size guard still wired in the refactored `fetchRawContent`.
+**Level:** Automated unit (extend existing `limits.test.ts` or add to scanner test)
+**Automatable now:** Yes — mock `githubFetch` to return a Response with a large
+`Content-Length` header; assert null returned without body read.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Mock `githubFetch` to return a Response with `Content-Length: 600000`
+   (exceeds `MAX_CONTENT_BYTES` = 512000).
+2. Call `fetchRawContent`.
+3. Assert return value is `null`.
+4. Assert `response.text()` was NOT called (spy on the mock response's `.text()` method).
+
+**Expected result:** `null` returned; body not read; warning logged with the oversized URL.
+
+---
+
+#### TC-253: Post-read byte-length guard preserved for base64 fallback path
+**Hypothesis:** When the base64 fallback is used, the post-read `Buffer.byteLength` check
+fires after decoding. A decoded string exceeding `MAX_CONTENT_BYTES` is rejected and `null`
+is returned even if the JSON envelope's `Content-Length` did not trigger the pre-read guard.
+**Preconditions:** Post-read check wired in the base64 fallback branch.
+**Level:** Automated unit
+**Automatable now:** Yes — mock a base64-encoded large string; assert null returned.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Generate a string of length > `MAX_CONTENT_BYTES`; base64-encode it.
+2. Mock `githubFetch` to return a JSON response with that base64 `content` and a
+   small `Content-Length` (so the pre-read check does not fire).
+3. Call `fetchRawContent`.
+4. Assert return value is `null`.
+
+**Expected result:** `null` returned after the post-read byte check fires.
+
+---
+
+#### TC-254: `Accept: application/vnd.github.raw` header sent on every contents fetch
+**Hypothesis:** Every call to the Contents API endpoint includes
+`Accept: application/vnd.github.raw` (or the equivalent raw media type) in the request
+headers, so the GHES instance has the opportunity to serve raw bytes without base64
+encoding. The base64 path is a fallback, not the default.
+**Preconditions:** `fetchRawContent` sends the correct Accept header.
+**Level:** Automated unit — mock `githubFetch` and capture headers.
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Mock `githubFetch` to capture the request headers and return a stub response.
+2. Call `fetchRawContent`.
+3. Assert the `Accept` header in the captured request contains `"application/vnd.github.raw"`.
+
+**Expected result:** Raw media type Accept header present in every contents fetch.
+
+---
+
+#### TC-255: `fetchRawContent` for github.com uses Contents API (not raw.githubusercontent.com)
+**Hypothesis:** After the ADR-006 Decision 3 refactor, a `fetchRawContent` call for a
+github.com repo uses the Contents API URL (`https://api.github.com/repos/.../contents/...`)
+and does NOT call `https://raw.githubusercontent.com`. This is both a correctness assertion
+and the regression test that confirms the old fetch path was removed.
+**Preconditions:** `fetchRawContent` refactored; `fetch` mocked to capture URLs.
+**Level:** Automated unit — REGRESSION (confirms old raw URL removed)
+**Automatable now:** Yes — mock `fetch`/`githubFetch` and assert no raw.githubusercontent.com URL called.
+**Status:** NOT YET WRITTEN
+
+**Steps:**
+1. Mock `githubFetch` to capture called URLs.
+2. Spy on global `fetch` to detect bare calls to `raw.githubusercontent.com`.
+3. Call `fetchRawContent` for a github.com repo.
+4. Assert no URL containing `"raw.githubusercontent.com"` was called.
+5. Assert `githubFetch` was called with a URL containing `"/contents/"`.
+
+**Expected result:** Contents API used; `raw.githubusercontent.com` not called.
+This is the explicit removal confirmation of the old fetch path.
+
+---
+
+### Regression Cases — GHE
+
+These cases call out which existing tests and fixtures are affected by the GHES
+changes and must be re-confirmed green after implementation.
+
+---
+
+#### TC-260: REGRESSION — existing scanner mock URLs must be updated from raw.githubusercontent.com to Contents API
+**Hypothesis:** ADR-006 confirms there is no direct unit test on `client.ts` or the
+raw-fetch path in `index.ts` today (`tests/scanner/` covers `layout`, `parser`, `limits`,
+`writer` only). However, if any scanner test exercises `fetchRawContent` with a mock for
+`raw.githubusercontent.com`, that mock will break when the fetch URL changes to the
+Contents API form. This is a flag item — the Lead must search for any such mock at
+implementation time.
+**Level:** Code inspection / regression flag
+**Automatable now:** Partially — grep for `raw.githubusercontent.com` in `tests/`.
+**Status:** NOT YET WRITTEN — flag for Lead
+
+**Steps:**
+1. Run: `grep -rn "raw.githubusercontent.com" tests/`
+2. For any match found: the test is mocking the old fetch URL and will break after
+   the refactor. The Lead must update the mock to the Contents API URL form
+   (`/repos/{o}/{r}/contents/{path}?ref={branch}`) before the test will pass.
+
+**Expected result (at implementation time):**
+If zero matches: no mock updates needed.
+If matches found: each matching test needs its mock URL changed to the Contents API form.
+The mock `Accept` header assertion (if any) must also be updated to `application/vnd.github.raw`.
+
+**Note on current state (2026-06-05):** The scanner test files (`layout.test.ts`,
+`parser.test.ts`, `limits.test.ts`, `writer.test.ts`) do not appear to mock network calls
+at the `fetch` level — they test pure functions. The risk is low but this grep should be
+run as the first step of the Lead's implementation to confirm no hidden raw URL mocks exist.
+
+---
+
+#### TC-261: REGRESSION — `client.ts` per-request refactor changes the module interface
+**Hypothesis:** The refactor from module-load-time `REQUEST_HEADERS` constant to per-request
+`buildHeaders(host)` changes how `client.ts` is structured. Any test that imports and tests
+`client.ts` behavior directly (e.g., a test that asserts the frozen `REQUEST_HEADERS` value)
+will break. This is a regression flag.
+**Level:** Code inspection
+**Automatable now:** Partially — grep for imports of `client.ts` in tests.
+**Status:** NOT YET WRITTEN — flag for Lead
+
+**Steps:**
+1. Run: `grep -rn "client" tests/`
+2. For any test that directly tests the old `REQUEST_HEADERS` constant or the old
+   single-call `buildHeaders()` signature: it must be updated to test `buildHeaders(host)`.
+
+**Expected result (at implementation time):**
+No tests currently import `client.ts` directly (confirmed by inspection: scanner tests
+cover layout, parser, limits, writer — not client). Risk is low but must be confirmed.
+The new `buildHeaders(host)` tests in this section (TC-220 through TC-230) are the
+replacement coverage.
+
+---
+
+#### TC-262: REGRESSION — existing writer tests use `repoUrl: "https://github.com/..."` — must remain green
+**Hypothesis:** The existing `writer.test.ts` tests construct `SkillEntry` and
+`ScannedRepo` fixtures with `repoUrl: "https://github.com/..."`. These are data-level
+assertions that do not touch URL derivation. After the GHES refactor, the github.com
+scanner path produces identical `repoUrl` values (TC-208 is the unit confirmation).
+These tests must pass unchanged.
+**Level:** Automated unit (re-run existing `writer.test.ts`)
+**Automatable now:** Yes — run `npm run test`.
+**Status:** NOT YET WRITTEN (re-run required post-implementation)
+
+**Steps:**
+1. After implementation, run: `npm run test -- tests/scanner/writer.test.ts`
+2. Assert all existing writer tests pass without modification.
+
+**Expected result:** All existing writer tests green. `repoUrl` values in fixtures remain
+`"https://github.com/..."` unchanged.
+
+---
+
+#### TC-263: REGRESSION — frontend tests use github.com `repoUrl` in fixtures — must remain green
+**Hypothesis:** `frontend.test.tsx` constructs `SkillEntry` fixtures with
+`repoUrl: "https://github.com/anthropics/skills"` and asserts the install command uses
+that URL. After the GHES refactor, no frontend code changes were made — these tests
+exercise the frontend with github.com data and must stay green.
+**Level:** Automated unit (re-run existing `frontend.test.tsx`)
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN (re-run required post-implementation)
+
+**Steps:**
+1. Run: `npm run test -- tests/fe/frontend.test.tsx`
+2. Assert all existing frontend tests pass.
+
+**Expected result:** All frontend tests green. The GHES refactor is scanner-side only;
+no frontend test changes expected.
+
+---
+
+#### TC-264: REGRESSION — e2e fixture contains `repoUrl: "https://github.com/..."` — catalog.spec.ts must remain green
+**Hypothesis:** `tests/e2e/fixtures/skills.json` has `repoUrl: "https://github.com/anthropics/skills"`
+for both skill entries and in `metadata.repos[0].repoUrl`. The e2e suite asserts the install
+command string contains `https://github.com/anthropics/skills`. These must remain correct
+and green after the GHES refactor. No fixture change is needed for the github.com deployment.
+**Level:** e2e (Playwright — re-run existing `catalog.spec.ts`)
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN (re-run required post-implementation)
+
+**Steps:**
+1. Run: `npx playwright test`
+2. Assert all 12 e2e tests pass.
+
+**Expected result:** All 12 e2e tests green. The fixture uses github.com URLs throughout
+and is unaffected by the GHES scanner changes.
+
+---
+
+#### TC-265: REGRESSION — `data/skills.json` schema shape unchanged after GHES refactor (ADR-002)
+**Hypothesis:** ADR-006 Decision 5 explicitly states no schema change. After the GHES
+refactor, a github.com scan run produces a `data/skills.json` with the exact same envelope
+structure as today: `{ metadata: { schemaVersion: 1, ... }, skills: [...] }`. No new
+`host` field added to the schema. The ADR-002 invariants are unchanged.
+**Preconditions:** Implementation complete.
+**Level:** Automated unit + code inspection
+**Automatable now:** Yes — run a mock github.com scan; read output; assert schema shape.
+**Status:** NOT YET WRITTEN (regression verification post-implementation)
+
+**Steps:**
+1. Run a mocked github.com scan.
+2. Read `data/skills.json`.
+3. Assert `schemaVersion === 1`.
+4. Assert no `host` field present at the top level of `metadata` or on individual `SkillEntry` objects.
+5. Run `npm run typecheck` to confirm `src/types/skills.ts` is unchanged.
+
+**Expected result:** Schema unchanged. `schemaVersion` stays `1`. No new fields in
+`SkillEntry` or `SkillsMetadata`. ADR-002 addendum (the `repos` array added for SR-1)
+is unaffected.
+
+---
+
+#### TC-266: REGRESSION — `npm run test` (full suite) reports 90+ passing after GHES implementation
+**Hypothesis:** After all GHES scanner changes, the full Vitest suite reports at minimum
+the same 90 tests that were green before implementation, plus the new GHE unit tests added
+in this section. Zero existing tests are broken.
+**Level:** Automated (Vitest — `npm run test`)
+**Automatable now:** Yes — this is the standard regression gate.
+**Status:** NOT YET WRITTEN (post-implementation)
+
+**Steps:**
+1. Run: `npm run test`
+2. Assert exit code 0.
+3. Assert the test count is >= 90 (existing passing count).
+4. Assert zero failures.
+
+**Expected result:** Full suite green. New GHE tests added to the count; no existing tests
+broken.
+
+---
+
+#### TC-267: REGRESSION — `npm run typecheck` passes after GHES implementation
+**Hypothesis:** All TypeScript changes (adding `host` to `RepoConfig`, refactoring
+`buildHeaders` to accept `host`, the URL helper types) compile without error.
+**Level:** Automated (tsc)
+**Automatable now:** Yes.
+**Status:** NOT YET WRITTEN (post-implementation)
+
+**Steps:**
+1. Run: `npm run typecheck`
+2. Assert exit code 0 and zero errors.
+
+**Expected result:** Zero TypeScript errors.
+
+---
+
+#### TC-268: LIVE GHES END-TO-END — full scan against real GHES instance
+**Hypothesis:** When OQ-GHE-2 (CI network reachability) is resolved and a GHES instance
+is accessible, a real end-to-end scan run with `GHES_TOKEN` set produces `data/skills.json`
+with GHES `repoUrl` values, uses only the GHES api/v3 base for all API calls, and outputs
+no github.com API URLs.
+**Preconditions:**
+- OQ-GHE-2 resolved (GHES reachable from the CI runner or self-hosted runner deployed).
+- OQ-GHE-1 resolved (public exposure decision made).
+- Real GHES PAT set as `GHES_TOKEN`.
+- `repos.json` populated with real GHES entries.
+**Level:** Manual / integration (blocked on OQ-GHE-1 and OQ-GHE-2)
+**Automatable now:** NO — blocked pending deployment decisions.
+**Status:** BLOCKED — OQ-GHE-1 and OQ-GHE-2 must be resolved before this test can run.
+
+**Steps:**
+1. Configure `repos.json` with real GHES `host`, `owner`, `repo` entries.
+2. Set `GHES_TOKEN` to a valid PAT issued by the GHES instance.
+3. Run: `npm run scan`
+4. Assert scanner exits 0 (or with partial success if some repos fail).
+5. Inspect `data/skills.json`:
+   - All `repoUrl` values begin with `https://<ghes-host>/`.
+   - No `api.github.com` URLs in any log output.
+   - No `raw.githubusercontent.com` URLs in any log output.
+6. Verify the install command on the frontend points at the GHES host.
+7. Verify no `GHES_TOKEN` value appears in any log output.
+
+**Expected result:** Full GHES scan produces correct skills data with GHES-origin URLs.
+All AC#1–#10 satisfied in a live run.
+**Note:** This test is the final confirmation gate for production readiness. All
+unit tests (TC-200 through TC-267) are automatable without this test; this test is
+only needed to confirm the real GHES infrastructure is correctly wired.
+
+---
+
+#### TC-269: WORKFLOW INSPECTION — `scan.yml` updated to inject `GHES_SCAN_PAT` as `GHES_TOKEN`
+**Hypothesis:** When OQ-GHE-1 and OQ-GHE-2 are resolved and the workflow is updated,
+`scan.yml` includes a step that sets `GHES_TOKEN: ${{ secrets.GHES_SCAN_PAT }}` in the
+scanner process environment. The existing `SCAN_PAT` is still used only for the git
+push step, not the scanner reads. GHE-4 / AC#9.
+**Preconditions:** Workflow updated; OQ-GHE-1/2 resolved.
+**Level:** Workflow file inspection (manual — deferred)
+**Automatable now:** NO — workflow changes are explicitly deferred per ADR-006 Decision 6.
+**Status:** DEFERRED — pending OQ-GHE-1 and OQ-GHE-2 resolution.
+
+**Steps (when unblocked):**
+1. Read the updated `scan.yml`.
+2. Assert the scanner step has `GHES_TOKEN: ${{ secrets.GHES_SCAN_PAT }}` in its `env` block.
+3. Assert `SCAN_PAT` is present only in the git push step's context, not in the scanner step.
+4. Assert `GHES_SCAN_PAT` is not referenced in the deploy step or any push step.
+
+**Expected result:** Two secrets, two scopes, no conflation. `GHES_SCAN_PAT` authenticates
+API reads; `SCAN_PAT` authenticates the git push to this repo.
+
+---
+
+## GHE Must-Have Coverage
+
+| Requirement (GHE-1..5, GHE-N1) / AC# | TC(s) | Level | Automatable now |
+|---------------------------------------|-------|-------|-----------------|
+| GHE-1 / AC#1 — GHES API base `https://<host>/api/v3` | TC-200, TC-201, TC-202 | Unit | Yes |
+| GHE-1 / AC#1 — No `api.github.com` on GHES run | TC-201, TC-213, TC-214 | Unit + code inspection | Yes |
+| GHE-1 / AC#2 — Trees call on GHES api/v3 base | TC-201 | Unit | Yes |
+| GHE-2 / AC#3 — Raw content via Contents API (not raw.githubusercontent.com) | TC-205, TC-250, TC-251, TC-255 | Unit | Yes |
+| GHE-3 / AC#4 — `repoUrl` = `https://<host>/<owner>/<repo>` for GHES | TC-207, TC-209 | Unit | Yes |
+| GHE-3 / AC#5 — Install command uses GHES `repoUrl` | TC-210 | Unit | Yes |
+| GHE-3 / AC#6 — Card links use GHES `repoUrl` | TC-211 | Unit | Yes |
+| GHE-4 / AC#8 — GHES PAT never sent to github.com; github.com PAT never sent to GHES | TC-222, TC-223, TC-224, TC-227 | Unit — CRITICAL | Yes |
+| GHE-4 / AC#9 — GHES PAT from dedicated env var / secret | TC-220, TC-221, TC-225, TC-269 | Unit + workflow inspection | Yes (unit); Deferred (workflow) |
+| GHE-4 — Absent token → warn-and-continue (no new hard failure) | TC-225, TC-226 | Unit | Yes |
+| GHE-5 / AC#7 — Host single source of truth; no second place | TC-213 | Code inspection | Partially |
+| GHE-N1 — github.com backward compat; existing 90+12 tests green | TC-203, TC-204, TC-206, TC-208, TC-262, TC-263, TC-264, TC-266 | Unit + e2e regression | Yes |
+| AC#10 — Error handling unchanged (fail-soft, exit policy, rate-limit logging) | TC-229 (comment fix), TC-266 (full suite) | Code inspection + suite re-run | Yes |
+
+---
+
+## GHE Automatable vs Manual Summary
+
+**Automatable now (mock fetch, control env vars — no live GHES needed):**
+
+| TC | What it tests | Priority |
+|----|--------------|----------|
+| TC-200–TC-214 | URL derivation: api base, trees URL, repo info URL, contents URL, repoUrl | High |
+| TC-220–TC-230 | PAT routing: right token per host; no cross-host leak; absent-token fallback | CRITICAL |
+| TC-240–TC-244 | Config: `host` field loads; array contract; missing/empty host validation | High |
+| TC-250–TC-255 | Contents API: raw path; base64 fallback; size guards; Accept header | High |
+| TC-260–TC-267 | Regression: existing suite green; stale comment removed; schema unchanged | High |
+
+**Manual / blocked (require live GHES or deferred deployment decisions):**
+
+| TC | Blocker | Notes |
+|----|---------|-------|
+| TC-268 | OQ-GHE-1 (public exposure decision) + OQ-GHE-2 (network reachability) | The live end-to-end gate; cannot run until infra is confirmed |
+| TC-269 | OQ-GHE-1 + OQ-GHE-2 resolved; `scan.yml` updated | Workflow inspection; deferred per ADR-006 Decision 6 |
+
+All scanner behavior (URL derivation, PAT routing, config loading, Contents API handling)
+is unit-testable with mocked `fetch` and controlled environment variables. A live GHES
+instance is not required for any automated test case. TC-268 is the final confirmation
+that infrastructure, network, and secrets are correctly wired — it cannot be automated
+without a real GHES host, and it is explicitly blocked pending OQ-GHE-1/2 resolution.
+
+---
+
+## GHE Regression Risk Summary
+
+| Risk | Likelihood | Impact | Protected by |
+|------|-----------|--------|-------------|
+| Raw URL mocks in existing scanner tests break after Contents API switch | Low (scanner tests are pure-function tests, not fetch mocks) | High if present | TC-260 grep check — must run before implementation |
+| `client.ts` refactor breaks direct client tests | Low (no direct client tests today) | High if present | TC-261 grep check |
+| github.com repoUrl changes to GHES form (regression) | Medium if backward-compat special-case is incorrect | High (breaks writer tests, e2e fixture assertions, live github.com scan) | TC-203, TC-208, TC-262, TC-263, TC-264 |
+| GHES PAT sent to api.github.com (cross-host leak) | Medium without explicit test coverage | CRITICAL (security) | TC-222, TC-223, TC-224, TC-227 — these are the most important tests in this section |
+| GITHUB_TOKEN sent to GHES host (cross-host leak) | Medium without explicit test coverage | CRITICAL (security) | TC-222, TC-223 |
+| Contents fetch bypasses `githubFetch` (bare fetch call) | Medium | High (auth not applied; PAT never reaches GHES) | TC-228 |
+| Missing `host` field produces `https://undefined/api/v3` URL | Medium if validation absent | High (silent failure; every API call 404s) | TC-242, TC-243 |
+| repoUrl contains `/api/v3` (API URL not browsable) | Low (explicit test) | Medium (frontend links broken) | TC-209 |
+| Stale "does not count against rate limit" comment misleads maintainer | Low | Low (comment accuracy) | TC-229 (grep check) |
+| Schema changes inadvertently (new `host` field added to output) | Low | Medium (breaks downstream consumers of skills.json) | TC-265 |

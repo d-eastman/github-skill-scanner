@@ -1,5 +1,5 @@
 [
-  { "owner": "anthropics", "repo": "skills" },
-  { "owner": "vercel-labs", "repo": "skills" },
-  { "owner": "juliusbrussee", "repo": "caveman" }
+  { "host": "github.com", "owner": "anthropics", "repo": "skills" },
+  { "host": "github.com", "owner": "vercel-labs", "repo": "skills" },
+  { "host": "github.com", "owner": "juliusbrussee", "repo": "caveman" }
 ]

@@ -496,3 +496,53 @@ describe("ScannedReposIndicator", () => {
     expect(liveRegions).toHaveLength(0);
   });
 });
+
+// ─── GHE frontend regression tests (TC-210, TC-211) ─────────────────────────
+// These test that the frontend components are already data-driven on repoUrl —
+// no frontend code change is needed for GHES; only the repoUrl value changes.
+// ADR-006 Decision 5: no schema change; frontend already reads repoUrl from data.
+
+describe("GHE frontend data-driven tests (TC-210, TC-211)", () => {
+  const ghesRepoUrl = "https://github.example.com/team-a/skills";
+
+  // TC-210: install command uses GHES repoUrl without any code change
+  it("TC-210: buildInstallCommand uses GHES repoUrl verbatim in the install command", () => {
+    const skill: SkillEntry = {
+      name: "PDF Tool",
+      description: "Makes PDFs",
+      skillName: "pdf",
+      repo: "team-a/skills",
+      repoUrl: ghesRepoUrl,
+      path: "skills/pdf/SKILL.md",
+    };
+
+    const command = buildInstallCommand(skill);
+    expect(command).toBe(
+      "npx skills add https://github.example.com/team-a/skills --skill pdf -a github-copilot -y"
+    );
+    expect(command).not.toContain("github.com/team-a");
+  });
+
+  // TC-211: SkillCard repo link uses GHES repoUrl as href
+  it("TC-211: SkillCard repo link href is the GHES repoUrl", () => {
+    const skill: SkillEntry = {
+      name: "PDF Tool",
+      description: "Makes PDFs",
+      skillName: "pdf",
+      repo: "team-a/skills",
+      repoUrl: ghesRepoUrl,
+      path: "skills/pdf/SKILL.md",
+    };
+
+    render(<SkillCard skill={skill} onCopy={() => {}} />);
+
+    const links = screen.getAllByRole("link");
+    const repoLink = links.find(
+      (l) => l.getAttribute("href") === ghesRepoUrl
+    );
+    expect(repoLink).toBeDefined();
+    expect(repoLink?.getAttribute("href")).toBe(ghesRepoUrl);
+    expect(repoLink?.getAttribute("target")).toBe("_blank");
+    expect(repoLink?.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+});
