@@ -1,7 +1,7 @@
 {
   "metadata": {
     "schemaVersion": 1,
-    "lastScanned": "2026-07-03T08:42:27.320Z",
+    "lastScanned": "2026-07-04T08:16:24.077Z",
     "repoCount": 3,
     "reposSucceeded": 3,
     "reposFailed": 0,
@@ -182,7 +182,7 @@
     },
     {
       "name": "caveman",
-      "description": "Ultra-compressed communication mode. Cuts token usage ~75% by speaking like caveman while keeping full technical accuracy. Supports intensity levels: lite, full (default), ultra, wenyan-lite, wenyan-full, wenyan-ultra. Use when user says \"caveman mode\", \"talk like caveman\", \"use caveman\", \"less tokens\", \"be brief\", or invokes /caveman. Also auto-triggers when token efficiency is requested.",
+      "description": "Ultra-compressed communication mode. Cuts output tokens 65% (measured) by speaking like caveman while keeping full technical accuracy. Supports intensity levels: lite, full (default), ultra, wenyan-lite, wenyan-full, wenyan-ultra. Use when user says \"caveman mode\", \"talk like caveman\", \"use caveman\", \"less tokens\", \"be brief\", or invokes /caveman. Also auto-triggers when token efficiency is requested.",
       "skillName": "caveman",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
