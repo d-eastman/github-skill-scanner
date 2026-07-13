@@ -1,7 +1,7 @@
 {
   "metadata": {
     "schemaVersion": 1,
-    "lastScanned": "2026-07-12T07:53:01.484Z",
+    "lastScanned": "2026-07-13T08:40:14.006Z",
     "repoCount": 3,
     "reposSucceeded": 3,
     "reposFailed": 0,
@@ -117,8 +117,8 @@
       "path": "skills/pptx/SKILL.md"
     },
     {
-      "name": "skill-creator",
-      "description": "Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's description for better triggering accuracy.",
+      "name": null,
+      "description": null,
       "skillName": "skill-creator",
       "repo": "anthropics/skills",
       "repoUrl": "https://github.com/anthropics/skills",
