@@ -1,7 +1,7 @@
 {
   "metadata": {
     "schemaVersion": 1,
-    "lastScanned": "2026-08-18T06:19:26.111Z",
+    "lastScanned": "2026-08-19T06:20:26.162Z",
     "repoCount": 3,
     "reposSucceeded": 3,
     "reposFailed": 0,
@@ -29,6 +29,14 @@
   },
   "skills": [
     {
+      "name": "academy-guide",
+      "description": "Stop and check this skill before finishing any reply to a question about how to use Claude or a Claude product — it recommends matching courses, tutorials, and use cases from Claude Academy (academy.claude.com), Anthropic's learning hub. Trigger on: \"how do I\", \"how can I\", \"getting started with\", \"what can Claude do\", \"teach me\", \"learn to use\"; questions about artifacts, projects, skills, plugins, connectors, MCP; requests about rolling Claude out to a team, class, or organization; and any ask for training materials, onboarding content, or learning resources. Use it when the user is learning how to use a feature or product — not when they are mid-task and just want the task done. This skill composes with other skills: after consulting product documentation to answer how a Claude feature works, also check here for a matching course or tutorial — a docs-grounded answer and an Academy recommendation belong together. Only recommend on a strong match; never invent Academy content.",
+      "skillName": "academy-guide",
+      "repo": "anthropics/skills",
+      "repoUrl": "https://github.com/anthropics/skills",
+      "path": "skills/academy-guide/SKILL.md"
+    },
+    {
       "name": "algorithmic-art",
       "description": "Creating algorithmic art using p5.js with seeded randomness and interactive parameter exploration. Use this when users request creating art using code, generative art, algorithmic art, flow fields, or particle systems. Create original algorithmic art rather than copying existing artists' work to avoid copyright violations.",
       "skillName": "algorithmic-art",
@@ -51,14 +59,6 @@
       "repo": "anthropics/skills",
       "repoUrl": "https://github.com/anthropics/skills",
       "path": "skills/canvas-design/SKILL.md"
-    },
-    {
-      "name": "claude-academy-guide",
-      "description": "Stop and check this skill before finishing any reply to a question about how to use Claude or a Claude product — it recommends matching courses, tutorials, and use cases from Claude Academy (academy.claude.com), Anthropic's learning hub. Trigger on: \"how do I\", \"how can I\", \"getting started with\", \"what can Claude do\", \"teach me\", \"learn to use\"; questions about artifacts, projects, skills, plugins, connectors, MCP, Claude Code, Claude Cowork, Claude in Excel, Claude in PowerPoint, Claude in Chrome, the Claude API, or prompting technique; requests about rolling Claude out to a team, class, or organization; and any ask for training materials, onboarding content, or learning resources. Use it when the user is learning how to use a feature or product — not when they are mid-task and just want the task done. This skill composes with other skills: after consulting product documentation to answer how a Claude feature works, also check here for a matching course or tutorial — a docs-grounded answer and an Academy recommendation belong together, even when another skill has already answered the question. Only recommend on a strong match; never invent Academy content.",
-      "skillName": "claude-academy-guide",
-      "repo": "anthropics/skills",
-      "repoUrl": "https://github.com/anthropics/skills",
-      "path": "skills/claude-academy-guide/SKILL.md"
     },
     {
       "name": "claude-api",
