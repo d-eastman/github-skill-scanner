@@ -1,7 +1,7 @@
 {
   "metadata": {
     "schemaVersion": 1,
-    "lastScanned": "2026-08-23T06:18:13.966Z",
+    "lastScanned": "2026-08-24T06:29:40.484Z",
     "repoCount": 3,
     "reposSucceeded": 3,
     "reposFailed": 0,
@@ -254,7 +254,7 @@
     },
     {
       "name": "caveman-learn",
-      "description": "Close the loop on a Caveman learn report — review the ranked token sinks and apply cost-lowering fixes (trim config, offload recurring context to cavemem) with per-edit consent. Use when the user runs \"caveman learn\", asks to lower their agent's token cost, wants to trim a heavy CLAUDE.md, or wants to offload context they re-paste every session into cavemem.",
+      "description": "Close the loop on a Caveman learn report — review the ranked token sinks, apply cost-lowering fixes (trim config, offload recurring context to cavemem) with per-edit consent, and report what those fixes returned with their attribution. Use when the user runs \"caveman learn\", asks to lower their agent's token cost, asks what caveman has saved them, wants to trim a heavy CLAUDE.md, or wants to offload context they re-paste every session into cavemem.",
       "skillName": "caveman-learn",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
