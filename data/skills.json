@@ -1,7 +1,7 @@
 {
   "metadata": {
     "schemaVersion": 1,
-    "lastScanned": "2026-08-29T11:49:44.101Z",
+    "lastScanned": "2026-08-30T10:46:09.373Z",
     "repoCount": 3,
     "reposSucceeded": 3,
     "reposFailed": 0,
@@ -190,7 +190,7 @@
     },
     {
       "name": "cavecrew",
-      "description": "Decision guide for delegating to caveman-style subagents. Tells the main thread WHEN to spawn `cavecrew-investigator` (locate code), `cavecrew-builder` (1-2 file edit), or `cavecrew-reviewer` (diff review) instead of doing the work inline or using vanilla `Explore`. Subagent output is caveman-compressed so the tool-result injected back into main context is ~60% smaller — main context lasts longer across long sessions. Trigger: \"delegate to subagent\", \"use cavecrew\", \"spawn investigator/builder/reviewer\", \"save context\", \"compressed agent output\".",
+      "description": "When to delegate to `cavecrew-investigator` (locate code), `cavecrew-builder` (1-2 file edit) or `cavecrew-reviewer` (diff review) instead of working inline or using `Explore`. Their output is compressed, so main context lasts longer.",
       "skillName": "cavecrew",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
@@ -198,7 +198,7 @@
     },
     {
       "name": "caveman",
-      "description": "Ultra-compressed communication mode. Cuts output tokens 65% (measured) by speaking like caveman while keeping full technical accuracy. Supports intensity levels: lite, full (default), ultra, wenyan-lite, wenyan-full, wenyan-ultra. Use when user says \"caveman mode\", \"talk like caveman\", \"use caveman\", \"less tokens\", \"be brief\", or invokes /caveman. Also auto-triggers when token efficiency is requested.",
+      "description": "Ultra-compressed communication mode that cuts output tokens while keeping technical accuracy. Levels: lite, full, ultra and the wenyan variants. Use for /caveman, \"caveman mode\", \"talk like caveman\", \"be brief\" or \"less tokens\".",
       "skillName": "caveman",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
@@ -206,7 +206,7 @@
     },
     {
       "name": "caveman-commit",
-      "description": "Ultra-compressed commit message generator. Cuts noise from commit messages while preserving intent and reasoning. Conventional Commits format. Subject ≤50 chars, body only when \"why\" isn't obvious. Use when user says \"write a commit\", \"commit message\", \"generate commit\", \"/commit\", or invokes /caveman-commit. Auto-triggers when staging changes.",
+      "description": "Write a Conventional Commits message compressed to intent only. Use for \"write a commit\", \"commit message\", /commit or /caveman-commit.",
       "skillName": "caveman-commit",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
@@ -214,7 +214,7 @@
     },
     {
       "name": "caveman-compress",
-      "description": "Compress natural language memory files (CLAUDE.md, todos, preferences) into caveman format to save input tokens. Preserves all technical substance, code, URLs, and structure. Compressed version overwrites the original file. Human-readable backup saved as FILE.original.md. Trigger: /caveman-compress FILEPATH or \"compress memory file\"",
+      "description": "Compress a memory file such as CLAUDE.md or a todo list into caveman format to save input tokens, keeping a readable backup. Trigger: /caveman-compress.",
       "skillName": "caveman-compress",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
@@ -222,7 +222,7 @@
     },
     {
       "name": "caveman-discover",
-      "description": "Find every LLM workflow in the current repository and label it, so Caveman Cloud groups spend by what the code actually does (support-reply, nightly-digest) instead of one anonymous bucket. Use when the user pastes the Caveman discovery prompt, says \"discover workflows\", or asks to break LLM spend down by workflow. The repo should already route through the Caveman gateway (the caveman-setup skill does that part).",
+      "description": "Find and label every LLM workflow in the repository so Caveman Cloud groups spend by workflow instead of one bucket. Use for \"discover workflows\" or breaking LLM spend down by workflow.",
       "skillName": "caveman-discover",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
@@ -230,7 +230,7 @@
     },
     {
       "name": "caveman-evidence-review",
-      "description": "Review Caveman Cloud evidence read-only: costs, Cave Score, Cave Plan, workflows, traces, latency, errors, compression, routing, and verified savings. Use when the user asks what Caveman found, where LLM spend goes, why cost or quality changed, which workflows need attention, or asks for a trace or analytics review. Prefer Caveman MCP tools; fall back to CLI JSON.",
+      "description": "Read-only review of Caveman Cloud evidence: cost, Cave Score, workflows, traces, latency, errors, routing, savings. Use when asked what Caveman found or where LLM spend goes.",
       "skillName": "caveman-evidence-review",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
@@ -238,7 +238,7 @@
     },
     {
       "name": "caveman-explore",
-      "description": "Read-only repository explorer. Use PROACTIVELY for cold-start exploration, broad cross-file localization, or when a direct search has failed and you need to find where something lives. Skip it when the issue already names the exact file or symbol, or a previous turn already returned usable file:line evidence. Returns only compact path:line citations; its reads and greps never enter the main conversation.",
+      "description": "Read-only repository explorer for cold-start orientation, broad cross-file localization, or when a direct search failed. Skip it when the exact file or symbol is already named. Returns path:line citations only; its reads stay out of main context.",
       "skillName": "caveman-explore",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
@@ -246,7 +246,7 @@
     },
     {
       "name": "caveman-help",
-      "description": "Quick-reference card for all caveman modes, skills, and commands. One-shot display, not a persistent mode. Trigger: /caveman-help, \"caveman help\", \"what caveman commands\", \"how do I use caveman\".",
+      "description": "Quick-reference card for caveman modes, skills and commands. Trigger: /caveman-help or \"caveman help\".",
       "skillName": "caveman-help",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
@@ -254,7 +254,7 @@
     },
     {
       "name": "caveman-learn",
-      "description": "Close the loop on a Caveman learn report — review the ranked token sinks, apply cost-lowering fixes (trim config, offload recurring context to cavemem) with per-edit consent, and report what those fixes returned with their attribution. Use when the user runs \"caveman learn\", asks to lower their agent's token cost, asks what caveman has saved them, wants to trim a heavy CLAUDE.md, or wants to offload context they re-paste every session into cavemem.",
+      "description": "Act on a Caveman learn report - review the ranked token sinks, apply cost-lowering fixes with per-edit consent, and report what those fixes returned. Use when asked to lower an agent's token cost, what caveman has saved, to trim a heavy CLAUDE.md, or to offload re-pasted context into cavemem.",
       "skillName": "caveman-learn",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
@@ -262,7 +262,7 @@
     },
     {
       "name": "caveman-manage",
-      "description": "Inspect Caveman Cloud's eval-gated experiment lifecycle and block unsafe execution. Use when the user asks to start, approve, cancel, promote, or roll back a Caveman experiment, or asks what action an experiment's evidence supports. Read evidence first; do not execute lifecycle mutations until server-authoritative transition and evidence gates ship.",
+      "description": "Inspect Caveman Cloud's experiment lifecycle and block unsafe execution. Use when asked to start, approve, cancel, promote or roll back a Caveman experiment.",
       "skillName": "caveman-manage",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
@@ -270,7 +270,7 @@
     },
     {
       "name": "caveman-optimize",
-      "description": "Turn Caveman's exact report-only repository observations into an operator-chosen optimization candidate with a paired baseline/candidate evaluation. Use when the user asks to inspect an optimization observation, evaluate a candidate change, or act on the current Caveman optimization report. Require a logged-in Caveman CLI connection and explicit approval; never infer money or actuation from a profile.",
+      "description": "Turn a Caveman optimization observation into an operator-chosen candidate with a paired baseline evaluation. Use when asked to inspect or evaluate a Caveman optimization report. Needs explicit approval.",
       "skillName": "caveman-optimize",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
@@ -278,7 +278,7 @@
     },
     {
       "name": "caveman-review",
-      "description": "Ultra-compressed code review comments. Cuts noise from PR feedback while preserving the actionable signal. Each comment is one line: location, problem, fix. Use when user says \"review this PR\", \"code review\", \"review the diff\", \"/review\", or invokes /caveman-review. Auto-triggers when reviewing pull requests.",
+      "description": "Compressed code review - one line per finding with location, problem and fix. Use for /caveman-review, \"review this PR\", or \"review the diff\".",
       "skillName": "caveman-review",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
@@ -286,7 +286,7 @@
     },
     {
       "name": "caveman-setup",
-      "description": "Wire the current repository through the Caveman Cloud gateway so every LLM request is measured — cost, tokens, latency — with zero behavior change. Use when the user pastes the Caveman setup prompt, says \"set up caveman\", or wants LLM spend observability added to an app. Requires the gateway URL and a Cave API key (the setup prompt carries both).",
+      "description": "Wire a repository through the Caveman Cloud gateway so every LLM request is measured, with no behavior change. Use for \"set up caveman\" or adding LLM spend observability.",
       "skillName": "caveman-setup",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
@@ -294,7 +294,7 @@
     },
     {
       "name": "caveman-stats",
-      "description": "Show real token usage and estimated savings for the current session. Reads directly from the Claude Code session log — no AI estimation. Triggers on /caveman-stats. Output is injected by the mode-tracker hook; the model itself does not compute the numbers.",
+      "description": "Show real token usage and estimated savings for the current session, read from the session log. Trigger: /caveman-stats.",
       "skillName": "caveman-stats",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
