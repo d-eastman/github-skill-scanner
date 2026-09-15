@@ -1,7 +1,7 @@
 {
   "metadata": {
     "schemaVersion": 1,
-    "lastScanned": "2026-09-14T11:01:51.806Z",
+    "lastScanned": "2026-09-15T10:31:42.896Z",
     "repoCount": 3,
     "reposSucceeded": 3,
     "reposFailed": 0,
@@ -294,7 +294,7 @@
     },
     {
       "name": "caveman-stats",
-      "description": "Show real token usage and estimated savings for the current session, read from the session log. Trigger: /caveman-stats.",
+      "description": "Show recorded output and cache-read token usage and mode attribution for the current Claude Code session, or locate the host's native usage report. Trigger: /caveman-stats.",
       "skillName": "caveman-stats",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
