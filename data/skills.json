@@ -1,11 +1,11 @@
 {
   "metadata": {
     "schemaVersion": 1,
-    "lastScanned": "2026-10-02T11:25:33.472Z",
+    "lastScanned": "2026-10-03T10:42:17.422Z",
     "repoCount": 3,
     "reposSucceeded": 3,
     "reposFailed": 0,
-    "skillCount": 41,
+    "skillCount": 43,
     "repos": [
       {
         "repo": "anthropics/skills",
@@ -16,7 +16,7 @@
       {
         "repo": "juliusbrussee/caveman",
         "repoUrl": "https://github.com/juliusbrussee/caveman",
-        "skillCount": 20,
+        "skillCount": 22,
         "status": "succeeded"
       },
       {
@@ -198,7 +198,7 @@
     },
     {
       "name": "caveman",
-      "description": "Ultra-compressed communication mode that cuts output tokens while keeping technical accuracy. Levels: lite, full, ultra and the wenyan variants. Use for /caveman, \"caveman mode\", \"talk like caveman\", \"be brief\" or \"less tokens\".",
+      "description": "Terse caveman voice: answer first, fluff gone, every technical fact kept. Use for /caveman, \"caveman mode\", \"talk like caveman\", \"be brief\", \"less tokens\". Stays on until \"stop caveman\" or \"normal mode\".",
       "skillName": "caveman",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
@@ -246,7 +246,7 @@
     },
     {
       "name": "caveman-help",
-      "description": "Quick-reference card for caveman modes, skills and commands. Trigger: /caveman-help or \"caveman help\".",
+      "description": "Quick-reference card for the three caveman skills and their commands. Trigger: /caveman-help or \"caveman help\".",
       "skillName": "caveman-help",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
@@ -317,6 +317,14 @@
       "path": "skills/lean-build/SKILL.md"
     },
     {
+      "name": "megacave",
+      "description": "Caveman in Classical Chinese: 文言文 register, far fewer characters, technical terms verbatim. Invoke only with /megacave or /caveman wenyan. Stays on until \"stop caveman\" or \"normal mode\".",
+      "skillName": "megacave",
+      "repo": "juliusbrussee/caveman",
+      "repoUrl": "https://github.com/juliusbrussee/caveman",
+      "path": "skills/megacave/SKILL.md"
+    },
+    {
       "name": "migration",
       "description": "Implement reversible compatibility-safe transitions. Use for schema, data, API, protocol, configuration, or dependency migrations requiring rollback and preservation proof.",
       "skillName": "migration",
@@ -339,6 +347,14 @@
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
       "path": "skills/surgical-patch/SKILL.md"
+    },
+    {
+      "name": "ultracave",
+      "description": "Caveman at maximum compression: fragments, one word when one word is enough, each fact once. Invoke only with /ultracave or /caveman ultra. Stays on until \"stop caveman\" or \"normal mode\".",
+      "skillName": "ultracave",
+      "repo": "juliusbrussee/caveman",
+      "repoUrl": "https://github.com/juliusbrussee/caveman",
+      "path": "skills/ultracave/SKILL.md"
     },
     {
       "name": "verify-and-stop",
