@@ -1,7 +1,7 @@
 {
   "metadata": {
     "schemaVersion": 1,
-    "lastScanned": "2026-10-13T13:00:33.987Z",
+    "lastScanned": "2026-10-14T10:41:36.026Z",
     "repoCount": 3,
     "reposSucceeded": 3,
     "reposFailed": 0,
@@ -214,7 +214,7 @@
     },
     {
       "name": "caveman-compress",
-      "description": "Compress a memory file such as CLAUDE.md or a todo list into caveman format to save input tokens, keeping a readable backup. Trigger: /caveman-compress.",
+      "description": "Compress a memory file such as CLAUDE.md or a todo list into caveman format to save input tokens, keeping a readable backup. Sends the file's text to the configured model provider. Trigger: /caveman-compress.",
       "skillName": "caveman-compress",
       "repo": "juliusbrussee/caveman",
       "repoUrl": "https://github.com/juliusbrussee/caveman",
